@@ -5,8 +5,15 @@ import { pool, checkDatabaseConnection } from "./database.js";
 
 const app = express();
 const port = Number(process.env.API_PORT || 3000);
-const TABLE_NAME = "fabrica.controle_telas_prateleiras";
+const TABLE_SCHEMA = "fabrica";
+const TABLE_BASENAME = "controle_telas_prateleiras";
+const TABLE_NAME = `${TABLE_SCHEMA}.${TABLE_BASENAME}`;
 const REQUIRED_COLUMNS = ["codbarrastela", "pecas", "tamanho_etiqueta", "status"];
+const REQUIRED_INDEXES = [
+  "idx_controle_telas_codbarrastela",
+  "idx_controle_telas_status",
+  "idx_controle_telas_modelo",
+];
 
 app.use(cors({ origin: "*" }));
 app.use(express.json());
@@ -175,18 +182,101 @@ const runSchemaMigrations = async () => {
 const readSchemaStatus = async () => {
   const result = await pool.query(
     `SELECT column_name
+          , data_type
      FROM information_schema.columns
-     WHERE table_schema = 'fabrica'
-       AND table_name = 'controle_telas_prateleiras'`,
+     WHERE table_schema = $1
+       AND table_name = $2`,
+    [TABLE_SCHEMA, TABLE_BASENAME],
   );
 
   const existing = new Set(result.rows.map((row) => row.column_name));
   const missingColumns = REQUIRED_COLUMNS.filter((columnName) => !existing.has(columnName));
+  const codbarrastelaColumn = result.rows.find((row) => row.column_name === "codbarrastela");
+  const invalidColumns = [];
+
+  if (codbarrastelaColumn && codbarrastelaColumn.data_type !== "character varying") {
+    invalidColumns.push({
+      column: "codbarrastela",
+      expected: "character varying",
+      actual: codbarrastelaColumn.data_type,
+    });
+  }
+
+  const indexesResult = await pool.query(
+    `SELECT indexname
+     FROM pg_indexes
+     WHERE schemaname = $1
+       AND tablename = $2`,
+    [TABLE_SCHEMA, TABLE_BASENAME],
+  );
+
+  const existingIndexes = new Set(indexesResult.rows.map((row) => row.indexname));
+  const missingIndexes = REQUIRED_INDEXES.filter((indexName) => !existingIndexes.has(indexName));
+
+  let pendingDataFix = false;
+  if (!missingColumns.includes("pecas") && !missingColumns.includes("status")) {
+    const pendingDataFixResult = await pool.query(
+      `SELECT EXISTS (
+         SELECT 1
+         FROM ${TABLE_NAME}
+         WHERE pecas IS NULL
+            OR status IS NULL
+            OR BTRIM(status) = ''
+       ) AS pending`,
+    );
+
+    pendingDataFix = pendingDataFixResult.rows[0]?.pending === true;
+  }
 
   return {
-    ok: missingColumns.length === 0,
+    ok: result.rowCount > 0
+      && missingColumns.length === 0
+      && invalidColumns.length === 0
+      && missingIndexes.length === 0
+      && !pendingDataFix,
+    tableExists: result.rowCount > 0,
     missingColumns,
+    invalidColumns,
+    missingIndexes,
+    pendingDataFix,
   };
+};
+
+const ensureSchemaMigrations = async () => {
+  try {
+    const schemaStatus = await readSchemaStatus();
+
+    if (!schemaStatus.tableExists) {
+      logEvent("info", "schema.migration.skipped", {
+        reason: "table_not_found",
+        table: TABLE_NAME,
+      });
+      return;
+    }
+
+    if (schemaStatus.ok) {
+      logEvent("info", "schema.migration.skipped", {
+        reason: "up_to_date",
+        table: TABLE_NAME,
+      });
+      return;
+    }
+
+    logEvent("info", "schema.migration.required", {
+      table: TABLE_NAME,
+      missingColumns: schemaStatus.missingColumns,
+      invalidColumns: schemaStatus.invalidColumns,
+      missingIndexes: schemaStatus.missingIndexes,
+      pendingDataFix: schemaStatus.pendingDataFix,
+    });
+
+    await runSchemaMigrations();
+  } catch (error) {
+    logEvent("error", "schema.status.failed", {
+      table: TABLE_NAME,
+      error: error.message,
+    });
+  }
 };
 
 app.get("/", (req, res) => {
@@ -630,7 +720,7 @@ app.use((error, req, res, next) => {
 });
 
 const startServer = async () => {
-  await runSchemaMigrations();
+  await ensureSchemaMigrations();
 
   try {
     await checkDatabaseConnection();
