@@ -128,6 +128,12 @@ const parseNullableNumber = (raw) => {
   return Number.isFinite(parsed) ? parsed : null;
 };
 
+const parsePositiveInt = (raw, fallback, max = Number.MAX_SAFE_INTEGER) => {
+  const parsed = Number.parseInt(String(raw ?? ""), 10);
+  if (!Number.isFinite(parsed) || parsed < 1) return fallback;
+  return Math.min(parsed, max);
+};
+
 const resolveBarcode = (data) => {
   return String(data?.codbarrastela ?? data?.codBarrasTela ?? "")
     .trim()
@@ -311,6 +317,9 @@ app.get("/buscar-telas", async (req, res) => {
     const modelo = req.query.modelo ? String(req.query.modelo).trim().toUpperCase() : "";
     const status = req.query.status ? normalizeStatus(req.query.status) : "";
     const endereco = req.query.endereco ? String(req.query.endereco).trim().toUpperCase() : "";
+    const search = req.query.search ? String(req.query.search).trim().toUpperCase() : "";
+    const page = parsePositiveInt(req.query.page, 1, 1000000);
+    const itemsPerPage = parsePositiveInt(req.query.itemsPerPage, 10, 200);
 
     const params = [];
     const where = [];
@@ -335,18 +344,49 @@ app.get("/buscar-telas", async (req, res) => {
       where.push(`UPPER(COALESCE(endereco, '')) LIKE $${params.length}`);
     }
 
+    if (search) {
+      params.push(`%${search}%`);
+      where.push(`(
+        UPPER(COALESCE(modelo, '')) LIKE $${params.length}
+        OR UPPER(COALESCE(marca, '')) LIKE $${params.length}
+        OR UPPER(COALESCE(numerotela, '')) LIKE $${params.length}
+        OR UPPER(COALESCE(codbarrastela, '')) LIKE $${params.length}
+        OR UPPER(COALESCE(endereco, '')) LIKE $${params.length}
+        OR CAST(id AS TEXT) LIKE $${params.length}
+      )`);
+    }
+
+    const whereClause = where.length ? `WHERE ${where.join(" AND ")}` : "";
+    const offset = (page - 1) * itemsPerPage;
+
+    const countQuery = `
+      SELECT COUNT(*)::int AS total
+      FROM ${TABLE_NAME}
+      ${whereClause}
+    `;
+
     const query = `
       SELECT *
       FROM ${TABLE_NAME}
-      ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
+      ${whereClause}
       ORDER BY modelo, numerotela, endereco
+      LIMIT $${params.length + 1}
+      OFFSET $${params.length + 2}
     `;
 
-    const result = await pool.query(query, params);
+    const [countResult, result] = await Promise.all([
+      pool.query(countQuery, params),
+      pool.query(query, [...params, itemsPerPage, offset]),
+    ]);
+
+    const total = Number(countResult.rows?.[0]?.total ?? 0);
 
     return sendSuccess(res, 200, {
       telas: result.rows,
-      total: result.rowCount,
+      total,
+      page,
+      itemsPerPage,
+      totalPages: total > 0 ? Math.ceil(total / itemsPerPage) : 0,
     });
   } catch (error) {
     logEvent("error", "buscar_telas.failed", {
