@@ -60,7 +60,11 @@ const SOLICITACAO_TRANSITIONS = {
 app.use(cors({ origin: "*" }));
 app.use(express.json());
 
-const toSqlDateTime = () => new Date().toISOString().slice(0, 19).replace("T", " ");
+const toSqlDateTime = () => {
+  return new Date().toLocaleString("sv-SE", {
+    timeZone: "America/Bahia"
+  });
+};
 
 const logEvent = (level, message, context = {}) => {
   const payload = {

@@ -2,7 +2,11 @@ const TABLE_NAME = "fabrica.controle_telas_prateleiras";
 
 const STATUS_ALLOWED = new Set(["ESTRAGADA", "PRODUCAO", "TERMINADA", "ARMAZENADA"]);
 
-const toSqlDateTime = () => new Date().toISOString().slice(0, 19).replace("T", " ");
+const toSqlDateTime = () => {
+  return new Date().toLocaleString("sv-SE", {
+    timeZone: "America/Bahia"
+  });
+};
 
 const normalizeDate = (raw) => {
   const value = String(raw || "").trim();
@@ -121,6 +125,9 @@ export const cadastrarTelaService = async ({
   }
 
   const now = toSqlDateTime();
+  console.log(`Data de cadastro: ${toSqlDateTime}`);
+
+
   const marca = String(data?.marca || "").trim().toUpperCase();
   const modelo = String(data?.modelo || "").trim().toUpperCase();
   const numerotela = String(data?.numerotela ?? data?.numero ?? "").trim().toUpperCase();
