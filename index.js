@@ -4,7 +4,7 @@ import { randomUUID } from "crypto";
 import { pool, checkDatabaseConnection } from "./database.js";
 
 const app = express();
-const port = Number(process.env.API_PORT || 3000);
+const port = Number(process.env.API_PORT || 3041);
 const TABLE_SCHEMA = "fabrica";
 const TABLE_BASENAME = "controle_telas_prateleiras";
 const TABLE_NAME = `${TABLE_SCHEMA}.${TABLE_BASENAME}`;
