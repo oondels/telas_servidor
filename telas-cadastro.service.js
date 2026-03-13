@@ -125,9 +125,6 @@ export const cadastrarTelaService = async ({
   }
 
   const now = toSqlDateTime();
-  console.log(`Data de cadastro: ${toSqlDateTime}`);
-
-
   const marca = String(data?.marca || "").trim().toUpperCase();
   const modelo = String(data?.modelo || "").trim().toUpperCase();
   const numerotela = String(data?.numerotela ?? data?.numero ?? "").trim().toUpperCase();
