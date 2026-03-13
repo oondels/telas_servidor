@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import { randomUUID } from "crypto";
 import { pool, checkDatabaseConnection } from "./database.js";
+import { createSolicitacoesTelasRouter } from "./solicitacoes-telas.controller.js";
 
 const app = express();
 const port = Number(process.env.API_PORT || 3041);
@@ -41,14 +42,18 @@ const SOLICITACAO_ALLOWED_STATUS = new Set([
   "gravacao",
   "setor_em_manutencao",
   "concluido",
+  "entregue",
+  "devolvido",
 ]);
 const SOLICITACAO_TRANSITIONS = {
   pedido: new Set(["aceito", "reprovado"]),
   aceito: new Set(["gravacao", "setor_em_manutencao"]),
   reprovado: new Set(),
   gravacao: new Set(["concluido"]),
-  setor_em_manutencao: new Set(["concluido"]),
-  concluido: new Set(),
+  setor_em_manutencao: new Set(["gravacao", "reprovado"]),
+  concluido: new Set(["entregue"]),
+  entregue: new Set(["devolvido"]),
+  devolvido: new Set(),
 };
 
 app.use(cors({ origin: "*" }));
@@ -539,6 +544,17 @@ const ensureSchemaMigrations = async () => {
   }
 };
 
+const solicitacoesTelasRouter = createSolicitacoesTelasRouter({
+  pool,
+  resolveUsuario,
+  parseMatricula,
+  sendSuccess,
+  sendError,
+  logEvent,
+});
+
+app.use("/solicitacoes-telas", solicitacoesTelasRouter);
+
 app.get("/", (req, res) => {
   return sendSuccess(res, 200, { message: "Servidor de Telas ativo" });
 });
@@ -776,17 +792,23 @@ app.put("/solicitacoes-telas/:id/status", async (req, res) => {
     const usuarioId = parseMatricula(usuario);
     const setor = resolveSetor(req, data);
     const proximoStatus = normalizeSolicitacaoStatus(data.status);
+    const observacaoConferente = String(data.observacao_conferente ?? data.observacaoConferente ?? "")
+      .trim() || null;
 
     if (!usuarioId) {
       return sendError(res, 400, "USUARIO_OBRIGATORIO", "Usuário autenticado não informado");
     }
 
-    if (setor !== "SERIGRAFIA") {
+    if (setor !== "SERIGRAFIA" && setor !== "AUTOMACAO") {
       return sendError(res, 403, "SETOR_NAO_AUTORIZADO", "Somente o setor SERIGRAFIA pode atualizar o status");
     }
 
     if (!proximoStatus) {
       return sendError(res, 400, "STATUS_INVALIDO", "Status inválido para atualização");
+    }
+
+    if (proximoStatus === "reprovado" && !observacaoConferente) {
+      return sendError(res, 400, "OBSERVACAO_OBRIGATORIA", "Informe uma observação para recusar ou cancelar");
     }
 
     const currentResult = await pool.query(
@@ -817,20 +839,23 @@ app.put("/solicitacoes-telas/:id/status", async (req, res) => {
     }
 
     const now = toSqlDateTime();
+    const statusConcluido = proximoStatus === "concluido";
     const query = `
       UPDATE ${SOLICITACAO_TABLE_NAME}
       SET
-        status = $1,
-        entregue = CASE WHEN $1 = 'concluido' THEN true ELSE entregue END,
-        data_entrega = CASE WHEN $1 = 'concluido' THEN $2 ELSE data_entrega END,
-        user_recebimento = CASE WHEN $1 = 'concluido' THEN $3 ELSE user_recebimento END,
+        status = $1::fabrica.status_solicitacao,
+        entregue = CASE WHEN $5 THEN true ELSE entregue END,
+        data_entrega = CASE WHEN $5 THEN $2 ELSE data_entrega END,
+        user_recebimento = CASE WHEN $5 THEN $3 ELSE user_recebimento END,
+        user_conferente = CASE WHEN NULLIF(BTRIM($6::text), '') IS NOT NULL THEN $3 ELSE user_conferente END,
+        observacao_conferente = COALESCE(NULLIF(BTRIM($6::text), ''), observacao_conferente),
         updated_at = $2,
         updated_by = $3
       WHERE id = $4
-      RETURNING id, status, entregue, data_entrega, user_recebimento, updated_at
+      RETURNING id, status, entregue, data_entrega, user_recebimento, user_conferente, observacao_conferente, updated_at
     `;
 
-    const result = await pool.query(query, [proximoStatus, now, usuarioId, id]);
+    const result = await pool.query(query, [proximoStatus, now, usuarioId, id, statusConcluido, observacaoConferente]);
 
     return sendSuccess(res, 200, {
       message: "success",
