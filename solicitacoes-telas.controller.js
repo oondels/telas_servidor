@@ -20,6 +20,10 @@ const handleUnexpectedError = (req, res, error, sendError, logEvent, fallbackCod
     return sendError(res, error.statusCode, error.code, error.message, error.details);
   }
 
+  if (error && typeof error === "object" && "statusCode" in error && "code" in error && "message" in error) {
+    return sendError(res, error.statusCode, error.code, error.message, error.details ?? null);
+  }
+
   logEvent("error", fallbackCode, {
     requestId: req.requestId,
     error: error.message,
@@ -92,6 +96,7 @@ export const createSolicitacoesTelasRouter = ({
   router.put("/:id/start", async (req, res) => {
     try {
       const data = req.body || {};
+      const usuarioLogado = resolveUsuario(req, data);
       const updatedBy = resolveUpdatedBy(req, data, resolveUsuario, parseMatricula);
       if (!updatedBy) {
         return sendError(res, 400, "USUARIO_OBRIGATORIO", "Usuário autenticado não informado");
@@ -103,6 +108,7 @@ export const createSolicitacoesTelasRouter = ({
         id: req.params.id,
         targetStatus,
         updatedBy,
+        usuarioCreate: usuarioLogado,
       });
 
       return sendSuccess(res, 200, {
@@ -306,4 +312,3 @@ export const createSolicitacoesTelasRouter = ({
 
   return router;
 };
-

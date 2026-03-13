@@ -1,3 +1,5 @@
+import { cadastrarTelaService } from "./telas-cadastro.service.js";
+
 const SOLICITACAO_TABLE_NAME = "fabrica.solicitacao_tela";
 
 const STATUS = Object.freeze({
@@ -97,7 +99,7 @@ const runInTransaction = async (pool, callback) => {
 
 const fetchSolicitacaoForUpdate = async (client, id) => {
   const result = await client.query(
-    `SELECT id, status
+    `SELECT id, status, dados_pedido
      FROM ${SOLICITACAO_TABLE_NAME}
      WHERE id = $1
      FOR UPDATE`,
@@ -167,6 +169,7 @@ export const startSolicitacao = async ({
   id,
   targetStatus,
   updatedBy,
+  usuarioCreate,
 }) => {
   const normalizedTargetStatus = normalizeStartStatus(targetStatus);
   const allowedStartTargets = new Set([STATUS.GRAVACAO, STATUS.SETOR_EM_MANUTENCAO]);
@@ -207,6 +210,32 @@ export const startSolicitacao = async ({
        RETURNING id, status, entregue, data_entrega, user_recebimento, user_conferente, observacao_conferente, updated_at, updated_by`,
       [normalizedTargetStatus, now, updatedBy, id],
     );
+
+    if (normalizedTargetStatus === STATUS.GRAVACAO) {
+      const itensSolicitacao = Array.isArray(currentRow?.dados_pedido?.items)
+        ? currentRow.dados_pedido.items
+        : [];
+
+      const dataFabricacao = new Date().toISOString().slice(0, 10);
+      for (const item of itensSolicitacao) {
+        await cadastrarTelaService({
+          db: client,
+          data: {
+            marca: item?.marca,
+            modelo: item?.modelo,
+            numerotela: item?.numero,
+            cor: item?.cor,
+            fios: item?.fios,
+            datafabricacao: dataFabricacao,
+            pecas: item?.pecas,
+            status: "producao",
+          },
+          usuarioCreate: usuarioCreate || String(updatedBy),
+          autoGenerateBarcode: true,
+          fallbackDataFabricacao: dataFabricacao,
+        });
+      }
+    }
 
     return result.rows[0];
   });

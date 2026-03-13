@@ -3,6 +3,7 @@ import cors from "cors";
 import { randomUUID } from "crypto";
 import { pool, checkDatabaseConnection } from "./database.js";
 import { createSolicitacoesTelasRouter } from "./solicitacoes-telas.controller.js";
+import { TelaCadastroError, cadastrarTelaService } from "./telas-cadastro.service.js";
 
 const app = express();
 const port = Number(process.env.API_PORT || 3041);
@@ -182,7 +183,7 @@ const resolveBarcode = (data) => {
 };
 
 const resolveUsuario = (req, data) => {
-  const userFromBody = data?.usuario;
+  const userFromBody = data?.usuariocreate ?? data?.usuario;
   const userFromHeader = req.headers["x-usuario"] ?? req.headers["x-user"];
   return String(userFromBody ?? userFromHeader ?? "")
     .trim()
@@ -966,92 +967,23 @@ app.post("/cadastrar-tela", async (req, res) => {
   try {
     const data = req.body || {};
     const usuario = resolveUsuario(req, data);
-    const codbarrastela = resolveBarcode(data);
-
-    if (!usuario) {
-      return sendError(res, 400, "USUARIO_OBRIGATORIO", "Usuário autenticado não informado");
-    }
-
-    if (!codbarrastela) {
-      return sendError(res, 400, "CODIGO_BARRAS_OBRIGATORIO", "Código de barras não informado");
-    }
-
-    const now = toSqlDateTime();
-    const marca = String(data.marca || "").trim().toUpperCase();
-    const modelo = String(data.modelo || "").trim().toUpperCase();
-    const numerotela = String(data.numerotela || "").trim().toUpperCase();
-    const cor = parseNullableNumber(data.cor);
-    const fios = parseNullableNumber(data.fios);
-    const datafabricacao = normalizeDate(data?.datafabricacao ?? data?.dataFabricacao);
-    const pecas = JSON.stringify(normalizePecas(data.pecas ?? data.components));
-    const tamanhoEtiquetaRaw = data.tamanhoEtiqueta ?? data.tamanho_etiqueta ?? null;
-    const tamanho_etiqueta = tamanhoEtiquetaRaw ? String(tamanhoEtiquetaRaw).trim().toUpperCase() : null;
-    const status = normalizeStatus(data.status);
-
-    if (!marca || !modelo || !numerotela || !datafabricacao) {
-      return sendError(
-        res,
-        400,
-        "DADOS_INVALIDOS_CADASTRO",
-        "Campos obrigatórios ausentes para cadastro",
-      );
-    }
-
-    const checkQuery = `SELECT id FROM ${TABLE_NAME} WHERE codbarrastela = $1`;
-    const checkResult = await pool.query(checkQuery, [codbarrastela]);
-
-    if (checkResult.rowCount > 0) {
-      return sendError(res, 409, "TELA_DUPLICADA", "Tela já cadastrada");
-    }
-
-    const insertQuery = `
-      INSERT INTO ${TABLE_NAME}
-      (
-        createdate,
-        updatedate,
-        usuariocreate,
-        marca,
-        modelo,
-        numerotela,
-        cor,
-        fios,
-        datafabricacao,
-        pecas,
-        tamanho_etiqueta,
-        codbarrastela,
-        status,
-        usuariostatus,
-        usuarioaltera
-      )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
-      RETURNING id
-    `;
-
-    const values = [
-      now,
-      now,
-      usuario,
-      marca,
-      modelo,
-      numerotela,
-      cor,
-      fios,
-      datafabricacao,
-      pecas,
-      tamanho_etiqueta,
-      codbarrastela,
-      status,
-      usuario,
-      usuario,
-    ];
-
-    const result = await pool.query(insertQuery, values);
+    const result = await cadastrarTelaService({
+      db: pool,
+      data,
+      usuarioCreate: usuario,
+      autoGenerateBarcode: false,
+    });
 
     return sendSuccess(res, 201, {
       message: "success",
-      id: result.rows[0]?.id,
+      id: result?.id,
+      tela: result,
     });
   } catch (error) {
+    if (error instanceof TelaCadastroError) {
+      return sendError(res, error.statusCode, error.code, error.message, error.details);
+    }
+
     logEvent("error", "cadastrar_tela.failed", {
       requestId: req.requestId,
       error: error.message,
