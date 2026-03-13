@@ -96,8 +96,10 @@ export const createSolicitacoesTelasRouter = ({
   router.put("/:id/start", async (req, res) => {
     try {
       const data = req.body || {};
-      const usuarioLogado = resolveUsuario(req, data);
-      const updatedBy = resolveUpdatedBy(req, data, resolveUsuario, parseMatricula);
+      const usuarioLogado = String(data.usuariocreate ?? resolveUsuario(req, data) ?? "")
+        .trim()
+        .toUpperCase();
+      const updatedBy = parseMatricula(data.usuario ?? resolveUsuario(req, data));
       if (!updatedBy) {
         return sendError(res, 400, "USUARIO_OBRIGATORIO", "Usuário autenticado não informado");
       }

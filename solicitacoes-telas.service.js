@@ -97,6 +97,107 @@ const runInTransaction = async (pool, callback) => {
   }
 };
 
+const normalizeSolicitacaoItems = (dadosPedidoRaw) => {
+  const dadosPedido = dadosPedidoRaw && typeof dadosPedidoRaw === "object"
+    ? dadosPedidoRaw
+    : (() => {
+      try {
+        return JSON.parse(String(dadosPedidoRaw || "{}"));
+      } catch {
+        return {};
+      }
+    })();
+
+  return Array.isArray(dadosPedido?.items) ? dadosPedido.items : [];
+};
+
+const normalizeSolicitacaoPecas = (rawPecas) => {
+  if (Array.isArray(rawPecas)) {
+    return rawPecas
+      .map((item) => String(item || "").trim().toUpperCase())
+      .filter(Boolean);
+  }
+
+  if (typeof rawPecas === "string" && rawPecas.trim()) {
+    return rawPecas
+      .split("/")
+      .map((item) => item.trim().toUpperCase())
+      .filter(Boolean);
+  }
+
+  return [];
+};
+
+const normalizeTelaFromSolicitacaoItem = (item) => {
+  const marca = String(item?.marca ?? "")
+    .trim()
+    .toUpperCase();
+  const modelo = String(item?.modelo ?? "")
+    .trim()
+    .toUpperCase();
+  const numero = String(item?.numero ?? item?.numerotela ?? item?.tamanhoDoQuadro ?? "")
+    .trim()
+    .toUpperCase();
+  const cor = String(item?.cor ?? "").trim();
+  const fios = String(item?.fios ?? "").trim();
+  const pecas = normalizeSolicitacaoPecas(item?.pecas);
+
+  return {
+    marca,
+    modelo,
+    numerotela: numero,
+    cor,
+    fios,
+    pecas,
+    status: "producao",
+  };
+};
+
+const validateTelaDataFromSolicitacao = (items) => {
+  if (!items.length) {
+    throw new SolicitacaoFlowError(
+      422,
+      "DADOS_PEDIDO_INVALIDOS",
+      "Solicitação sem itens para gerar telas",
+    );
+  }
+
+  const invalidItems = [];
+  const normalizedItems = items.map((rawItem, index) => {
+    const item = normalizeTelaFromSolicitacaoItem(rawItem);
+    const missingFields = [];
+
+    if (!item.marca) missingFields.push("marca");
+    if (!item.modelo) missingFields.push("modelo");
+    if (!item.numerotela) missingFields.push("numero_ou_tamanhoDoQuadro");
+    if (!item.cor) missingFields.push("cor");
+    if (!item.fios) missingFields.push("fios");
+    if (!item.pecas.length) missingFields.push("pecas");
+
+    if (missingFields.length) {
+      invalidItems.push({
+        itemIndex: index + 1,
+        missingFields,
+      });
+    }
+
+    return item;
+  });
+
+  if (invalidItems.length) {
+    throw new SolicitacaoFlowError(
+      422,
+      "DADOS_PEDIDO_INCOMPLETOS",
+      "Há itens sem dados suficientes para cadastrar telas",
+      {
+        invalidItems,
+      },
+    );
+  }
+
+  return normalizedItems;
+};
+
 const fetchSolicitacaoForUpdate = async (client, id) => {
   const result = await client.query(
     `SELECT id, status, dados_pedido
@@ -185,6 +286,11 @@ export const startSolicitacao = async ({
   return runInTransaction(pool, async (client) => {
     const currentRow = await fetchSolicitacaoForUpdate(client, id);
     const currentStatus = normalizeCurrentStatus(currentRow.status);
+    const itensSolicitacao = normalizeSolicitacaoItems(currentRow?.dados_pedido);
+
+    const telasParaCadastro = normalizedTargetStatus === STATUS.GRAVACAO
+      ? validateTelaDataFromSolicitacao(itensSolicitacao)
+      : [];
 
     const canStartFromAceito = currentStatus === STATUS.ACEITO
       && (normalizedTargetStatus === STATUS.GRAVACAO || normalizedTargetStatus === STATUS.SETOR_EM_MANUTENCAO);
@@ -212,18 +318,14 @@ export const startSolicitacao = async ({
     );
 
     if (normalizedTargetStatus === STATUS.GRAVACAO) {
-      const itensSolicitacao = Array.isArray(currentRow?.dados_pedido?.items)
-        ? currentRow.dados_pedido.items
-        : [];
-
       const dataFabricacao = new Date().toISOString().slice(0, 10);
-      for (const item of itensSolicitacao) {
+      for (const item of telasParaCadastro) {
         await cadastrarTelaService({
           db: client,
           data: {
             marca: item?.marca,
             modelo: item?.modelo,
-            numerotela: item?.numero,
+            numerotela: item?.numerotela,
             cor: item?.cor,
             fios: item?.fios,
             datafabricacao: dataFabricacao,
