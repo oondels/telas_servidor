@@ -41,8 +41,17 @@ export const createSolicitacoesTelasRouter = ({
   sendSuccess,
   sendError,
   logEvent,
+  matriculasGestores,
 }) => {
   const router = Router();
+
+  const checkGestor = (updatedBy, res) => {
+    if (!matriculasGestores.has(updatedBy)) {
+      sendError(res, 403, "GESTOR_NAO_AUTORIZADO", "Matrícula não autorizada a gerenciar solicitações de telas");
+      return false;
+    }
+    return true;
+  };
 
   /**
    * PUT /solicitacoes-telas/:id/attend
@@ -57,6 +66,7 @@ export const createSolicitacoesTelasRouter = ({
       if (!updatedBy) {
         return sendError(res, 400, "USUARIO_OBRIGATORIO", "Usuário autenticado não informado");
       }
+      if (!checkGestor(updatedBy, res)) return;
 
       const decision = data.decision ?? data.status;
       const observacaoConferente = String(data.observacao_conferente ?? data.observacaoConferente ?? "")
@@ -103,6 +113,7 @@ export const createSolicitacoesTelasRouter = ({
       if (!updatedBy) {
         return sendError(res, 400, "USUARIO_OBRIGATORIO", "Usuário autenticado não informado");
       }
+      if (!checkGestor(updatedBy, res)) return;
 
       const targetStatus = data.status ?? data.targetStatus;
       const solicitacao = await startSolicitacao({
@@ -142,6 +153,7 @@ export const createSolicitacoesTelasRouter = ({
       if (!updatedBy) {
         return sendError(res, 400, "USUARIO_OBRIGATORIO", "Usuário autenticado não informado");
       }
+      if (!checkGestor(updatedBy, res)) return;
 
       const solicitacao = await completeSolicitacao({
         pool,
@@ -180,6 +192,7 @@ export const createSolicitacoesTelasRouter = ({
       if (!updatedBy) {
         return sendError(res, 400, "USUARIO_OBRIGATORIO", "Usuário autenticado não informado");
       }
+      if (!checkGestor(updatedBy, res)) return;
 
       const userRecebimento = parseMatriculaPayload(
         parseMatricula,
@@ -247,6 +260,7 @@ export const createSolicitacoesTelasRouter = ({
       if (!updatedBy) {
         return sendError(res, 400, "USUARIO_OBRIGATORIO", "Usuário autenticado não informado");
       }
+      if (!checkGestor(updatedBy, res)) return;
 
       const userRecebimento = parseMatriculaPayload(
         parseMatricula,

@@ -57,6 +57,28 @@ const SOLICITACAO_TRANSITIONS = {
   devolvido: new Set(),
 };
 
+const MATRICULAS_SOLICITANTES = new Set([
+  3018729,
+  3012909,
+  3022878,
+  3005465,
+  3013869,
+]);
+
+const MATRICULAS_GESTORES = new Set([
+  3015489,
+  3014385,
+  3016764,
+  3014530,
+  3026004,
+  3015451,
+  3020013,
+  3012557,
+  3019908,
+  3020744,
+  3021787,
+]);
+
 app.use(cors({ origin: "*" }));
 app.use(express.json());
 
@@ -556,6 +578,7 @@ const solicitacoesTelasRouter = createSolicitacoesTelasRouter({
   sendSuccess,
   sendError,
   logEvent,
+  matriculasGestores: MATRICULAS_GESTORES,
 });
 
 app.use("/solicitacoes-telas", solicitacoesTelasRouter);
@@ -731,6 +754,10 @@ app.post("/solicitacoes-telas", async (req, res) => {
 
     if (!solicitante) {
       return sendError(res, 400, "USUARIO_OBRIGATORIO", "Solicitante autenticado não informado");
+    }
+
+    if (!MATRICULAS_SOLICITANTES.has(solicitante)) {
+      return sendError(res, 403, "SOLICITANTE_NAO_AUTORIZADO", "Matrícula não autorizada a criar solicitações de telas");
     }
 
     if (!dadosPedido.items.length || dadosPedido.items.some((item) => !isSolicitacaoItemValid(item))) {
