@@ -63,6 +63,7 @@ const MATRICULAS_SOLICITANTES = new Set([
   3022878,
   3005465,
   3013869,
+  3020495
 ]);
 
 const MATRICULAS_GESTORES = new Set([
@@ -77,6 +78,7 @@ const MATRICULAS_GESTORES = new Set([
   3019908,
   3020744,
   3021787,
+  3020495
 ]);
 
 app.use(cors({ origin: "*" }));
@@ -963,7 +965,7 @@ app.get("/buscar-telas", async (req, res) => {
       SELECT *
       FROM ${TABLE_NAME}
       ${whereClause}
-      ORDER BY modelo, numerotela, endereco
+      ORDER BY createdate DESC
       LIMIT $${params.length + 1}
       OFFSET $${params.length + 2}
     `;
