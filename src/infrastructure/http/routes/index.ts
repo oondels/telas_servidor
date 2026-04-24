@@ -1,9 +1,5 @@
 import { Express, Router } from "express";
-import { AppDataSource } from "../../database/data-source.js";
-import {
-  readSolicitacaoSchemaStatus,
-  readTelasSchemaStatus,
-} from "../../database/schema-manager.js";
+import { AppDataSource } from "../../../config/database.js";
 import { asyncHandler } from "../middlewares/async-handler.js";
 import { verifyToken } from "../middlewares/auth.js";
 import { sendSuccess } from "../../../shared/http/http-response.js";
@@ -54,16 +50,10 @@ export const registerRoutes = (app: Express) => {
 
   app.get("/health", asyncHandler(async (_req, res) => {
     await AppDataSource.query("SELECT 1");
-    const [schema, solicitacoesSchema] = await Promise.all([
-      readTelasSchemaStatus(),
-      readSolicitacaoSchemaStatus(),
-    ]);
 
     return sendSuccess(res, 200, {
       message: "healthy",
       db: true,
-      schema,
-      solicitacoesSchema,
     });
   }));
 

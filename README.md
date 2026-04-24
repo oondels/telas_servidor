@@ -58,6 +58,15 @@ npm install
 # desenvolvimento
 npm run dev
 
+# gerar migration
+npm run migration:generate
+
+# aplicar migrations
+npm run migration:run
+
+# reverter última migration
+npm run migration:revert
+
 # validação de tipos
 npm run check
 
@@ -115,4 +124,4 @@ Tabelas utilizadas:
 - `fabrica.controle_telas_prateleiras`
 - `fabrica.solicitacao_tela`
 
-O bootstrap verifica e ajusta o schema legado de `fabrica.controle_telas_prateleiras` no startup. O schema de `fabrica.solicitacao_tela` é validado e reportado no health check.
+O gerenciamento de schema agora é feito por migrations do TypeORM, configuradas a partir de [src/config/database.ts](/home/oendel/code/dass/telas_servidor/src/config/database.ts:1).
