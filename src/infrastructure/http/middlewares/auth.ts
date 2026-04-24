@@ -1,4 +1,4 @@
-import jwt, { JwtPayload } from "jsonwebtoken";
+import jwt, { JwtPayload, VerifyErrors } from "jsonwebtoken";
 import { NextFunction, Request, Response } from "express";
 import { env } from "../../../config/env.js";
 import { sendError } from "../../../shared/http/http-response.js";
@@ -10,7 +10,7 @@ export const verifyToken = (req: Request, res: Response, next: NextFunction) => 
     return sendError(res, 401, "TOKEN_NAO_FORNECIDO", "Acesso negado! Token de acesso não fornecido!");
   }
 
-  jwt.verify(token, env.JWT_SECRET, (error, decoded) => {
+  jwt.verify(token, env.JWT_SECRET, (error: VerifyErrors | null, decoded: string | JwtPayload | undefined) => {
     if (error || !decoded) {
       return sendError(
         res,

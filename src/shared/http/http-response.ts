@@ -1,6 +1,6 @@
 import { Response } from "express";
 
-export const sendSuccess = (res: Response, statusCode: number, payload: Record<string, unknown> = {}) => {
+export const sendSuccess = (res: Response, statusCode: number, payload: object = {}) => {
   return res.status(statusCode).json({
     erro: false,
     requestId: res.locals.requestId,

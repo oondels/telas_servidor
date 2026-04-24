@@ -23,7 +23,7 @@ if (!parsedEnv.success) {
     .map((issue) => `${issue.path.join(".")}: ${issue.message}`)
     .join("\n");
 
-  throw new Error(`Invalid environment variables:\n${formattedErrors}`);
+  throw new Error(`Variáveis de ambiente inválidas:\n${formattedErrors}`);
 }
 
 export const env = parsedEnv.data;
