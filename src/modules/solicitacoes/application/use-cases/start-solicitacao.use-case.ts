@@ -1,6 +1,4 @@
 import { AppError } from "../../../../shared/domain/errors/app-error.js";
-import { ensureAllowedMatricula } from "../../../../shared/auth/auth-context.js";
-import { MATRICULAS_GESTORES } from "../../../shared/domain/constants/access.js";
 import { NormalizedTelaFromSolicitacao, ISolicitacoesRepository } from "../contracts/solicitacoes.repository.js";
 
 const normalizeSolicitacaoItems = (dadosPedidoRaw: Record<string, unknown>) => {
@@ -47,13 +45,6 @@ export class StartSolicitacaoUseCase {
   constructor(private readonly solicitacoesRepository: ISolicitacoesRepository) {}
 
   async execute(id: string, targetStatus: string, updatedBy: number, usuarioCreate: string) {
-    ensureAllowedMatricula(
-      updatedBy,
-      MATRICULAS_GESTORES,
-      "GESTOR_NAO_AUTORIZADO",
-      "Matrícula não autorizada a gerenciar solicitações de telas",
-    );
-
     const solicitacao = await this.solicitacoesRepository.findById(id);
     if (!solicitacao) {
       throw new AppError(404, "SOLICITACAO_NAO_ENCONTRADA", "Solicitação não encontrada");

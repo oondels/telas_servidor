@@ -1,4 +1,5 @@
 import { Request } from "express";
+import { AppUser } from "../../modules/users/domain/app-user.js";
 import { AppError } from "../domain/errors/app-error.js";
 import { parseMatricula } from "../utils/parsers.js";
 
@@ -37,4 +38,12 @@ export const ensureAllowedSetor = (setor: string | null, allowed: Set<string>, c
   if (!setor || !allowed.has(setor)) {
     throw new AppError(403, code, message);
   }
+};
+
+export const getActiveAppUser = (req: Request): AppUser => {
+  if (!req.appUser) {
+    throw new AppError(403, "USUARIO_APP_NAO_CARREGADO", "Usuário da aplicação não carregado");
+  }
+
+  return req.appUser;
 };

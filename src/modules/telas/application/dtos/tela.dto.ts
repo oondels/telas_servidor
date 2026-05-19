@@ -8,6 +8,12 @@ export interface SearchTelasInput {
   itemsPerPage: number;
 }
 
+export interface SearchInactiveTelasInput {
+  days: number;
+  page: number;
+  itemsPerPage: number;
+}
+
 export interface CreateTelaInput {
   codbarrastela?: string;
   marca: string;
@@ -27,6 +33,10 @@ export interface CreateTelaInput {
 
 export interface EditTelaInput extends Partial<CreateTelaInput> {
   endereco?: string | null;
+}
+
+export interface ReplaceTelaInput extends Partial<CreateTelaInput> {
+  motivo: string;
 }
 
 export interface BatchUpdatePosicaoInput {

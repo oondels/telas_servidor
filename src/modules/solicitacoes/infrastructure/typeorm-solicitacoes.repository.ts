@@ -1,5 +1,6 @@
 import { DataSource } from "typeorm";
 import { TypeOrmTelasRepository } from "../../telas/infrastructure/typeorm-telas.repository.js";
+import { TypeOrmAuditEventsRepository } from "../../audit/infrastructure/typeorm-audit-events.repository.js";
 import { SolicitacaoOrmEntity } from "../../../infrastructure/database/entities/solicitacao.entity.js";
 import { AppError } from "../../../shared/domain/errors/app-error.js";
 import { toBahiaSqlDateTime } from "../../../shared/utils/date.js";
@@ -71,9 +72,11 @@ const createTransitionError = (
 
 export class TypeOrmSolicitacoesRepository implements ISolicitacoesRepository {
   private readonly telasRepository: TypeOrmTelasRepository;
+  private readonly auditRepository: TypeOrmAuditEventsRepository;
 
   constructor(private readonly dataSource: DataSource) {
     this.telasRepository = new TypeOrmTelasRepository(dataSource);
+    this.auditRepository = new TypeOrmAuditEventsRepository(dataSource);
   }
 
   async search(input: SearchSolicitacoesInput): Promise<SearchSolicitacoesOutput> {
@@ -179,7 +182,15 @@ export class TypeOrmSolicitacoesRepository implements ISolicitacoesRepository {
     });
 
     const saved = await repository.save(entity);
-    return mapSolicitacao(saved);
+    const solicitacao = mapSolicitacao(saved);
+    await this.auditRepository.create({
+      entityType: "SOLICITACAO",
+      entityId: solicitacao.id,
+      action: "SOLICITACAO_CRIADA",
+      actorMatricula: input.solicitante,
+      afterState: solicitacao as unknown as Record<string, unknown>,
+    });
+    return solicitacao;
   }
 
   async attend(input: AttendSolicitacaoInput): Promise<Solicitacao> {
@@ -215,6 +226,7 @@ export class TypeOrmSolicitacoesRepository implements ISolicitacoesRepository {
         );
       }
 
+      const before = mapSolicitacao(current);
       current.status = normalizedDecision;
       current.observacao_conferente = input.observacaoConferente ?? current.observacao_conferente;
       if (input.observacaoConferente) {
@@ -224,7 +236,16 @@ export class TypeOrmSolicitacoesRepository implements ISolicitacoesRepository {
       current.updated_by = String(input.updatedBy);
 
       const saved = await repository.save(current);
-      return mapSolicitacao(saved);
+      const after = mapSolicitacao(saved);
+      await this.auditRepository.create({
+        entityType: "SOLICITACAO",
+        entityId: after.id,
+        action: normalizedDecision === SOLICITACAO_STATUS.REPROVADO ? "SOLICITACAO_REPROVADA" : "SOLICITACAO_ACEITA",
+        actorMatricula: input.updatedBy,
+        beforeState: before as unknown as Record<string, unknown>,
+        afterState: after as unknown as Record<string, unknown>,
+      }, manager);
+      return after;
     });
   }
 
@@ -262,6 +283,7 @@ export class TypeOrmSolicitacoesRepository implements ISolicitacoesRepository {
         );
       }
 
+      const before = mapSolicitacao(current);
       current.status = targetStatus;
       current.updated_at = new Date(toBahiaSqlDateTime());
       current.updated_by = String(input.updatedBy);
@@ -277,7 +299,17 @@ export class TypeOrmSolicitacoesRepository implements ISolicitacoesRepository {
         );
       }
 
-      return mapSolicitacao(saved);
+      const after = mapSolicitacao(saved);
+      await this.auditRepository.create({
+        entityType: "SOLICITACAO",
+        entityId: after.id,
+        action: targetStatus === SOLICITACAO_STATUS.GRAVACAO ? "SOLICITACAO_INICIADA_GRAVACAO" : "SOLICITACAO_ENVIADA_MANUTENCAO",
+        actorMatricula: input.updatedBy,
+        beforeState: before as unknown as Record<string, unknown>,
+        afterState: after as unknown as Record<string, unknown>,
+      }, manager);
+
+      return after;
     });
   }
 
@@ -294,12 +326,22 @@ export class TypeOrmSolicitacoesRepository implements ISolicitacoesRepository {
         throw createTransitionError(currentStatus, SOLICITACAO_STATUS.GRAVACAO, SOLICITACAO_STATUS.CONCLUIDO);
       }
 
+      const before = mapSolicitacao(current);
       current.status = SOLICITACAO_STATUS.CONCLUIDO;
       current.updated_at = new Date(toBahiaSqlDateTime());
       current.updated_by = String(input.updatedBy);
 
       const saved = await repository.save(current);
-      return mapSolicitacao(saved);
+      const after = mapSolicitacao(saved);
+      await this.auditRepository.create({
+        entityType: "SOLICITACAO",
+        entityId: after.id,
+        action: "SOLICITACAO_CONCLUIDA",
+        actorMatricula: input.updatedBy,
+        beforeState: before as unknown as Record<string, unknown>,
+        afterState: after as unknown as Record<string, unknown>,
+      }, manager);
+      return after;
     });
   }
 
@@ -316,6 +358,7 @@ export class TypeOrmSolicitacoesRepository implements ISolicitacoesRepository {
         throw createTransitionError(currentStatus, SOLICITACAO_STATUS.CONCLUIDO, SOLICITACAO_STATUS.ENTREGUE);
       }
 
+      const before = mapSolicitacao(current);
       const now = new Date(toBahiaSqlDateTime());
       current.status = SOLICITACAO_STATUS.ENTREGUE;
       current.entregue = true;
@@ -326,7 +369,16 @@ export class TypeOrmSolicitacoesRepository implements ISolicitacoesRepository {
       current.updated_by = String(input.updatedBy);
 
       const saved = await repository.save(current);
-      return mapSolicitacao(saved);
+      const after = mapSolicitacao(saved);
+      await this.auditRepository.create({
+        entityType: "SOLICITACAO",
+        entityId: after.id,
+        action: "SOLICITACAO_ENTREGUE",
+        actorMatricula: input.updatedBy,
+        beforeState: before as unknown as Record<string, unknown>,
+        afterState: after as unknown as Record<string, unknown>,
+      }, manager);
+      return after;
     });
   }
 
@@ -343,6 +395,7 @@ export class TypeOrmSolicitacoesRepository implements ISolicitacoesRepository {
         throw createTransitionError(currentStatus, SOLICITACAO_STATUS.ENTREGUE, SOLICITACAO_STATUS.DEVOLVIDO);
       }
 
+      const before = mapSolicitacao(current);
       current.status = SOLICITACAO_STATUS.DEVOLVIDO;
       current.entregue = false;
       current.user_recebimento = String(input.userRecebimento);
@@ -352,7 +405,16 @@ export class TypeOrmSolicitacoesRepository implements ISolicitacoesRepository {
       current.updated_by = String(input.updatedBy);
 
       const saved = await repository.save(current);
-      return mapSolicitacao(saved);
+      const after = mapSolicitacao(saved);
+      await this.auditRepository.create({
+        entityType: "SOLICITACAO",
+        entityId: after.id,
+        action: "SOLICITACAO_DEVOLVIDA",
+        actorMatricula: input.updatedBy,
+        beforeState: before as unknown as Record<string, unknown>,
+        afterState: after as unknown as Record<string, unknown>,
+      }, manager);
+      return after;
     });
   }
 }

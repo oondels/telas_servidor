@@ -1,4 +1,16 @@
-export const TELA_STATUS_ALLOWED = new Set(["ESTRAGADA", "PRODUCAO", "TERMINADA", "ARMAZENADA"]);
+export const TELA_STATUS = {
+  PRODUCAO: "PRODUCAO",
+  TERMINADA: "TERMINADA",
+  ARMAZENADA: "ARMAZENADA",
+  ESTRAGADA: "ESTRAGADA",
+  SOLICITADA: "SOLICITADA",
+  EM_MOVIMENTACAO: "EM_MOVIMENTACAO",
+  RETIRADA: "RETIRADA",
+  EM_REPOSICAO: "EM_REPOSICAO",
+  DESABILITADA: "DESABILITADA",
+} as const;
+
+export const TELA_STATUS_ALLOWED = new Set<string>(Object.values(TELA_STATUS));
 
 export const normalizeTelaStatus = (status: unknown): string => {
   const normalized = String(status || "PRODUCAO").trim().toUpperCase();

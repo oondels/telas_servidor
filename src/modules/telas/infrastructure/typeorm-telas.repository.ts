@@ -1,5 +1,6 @@
 import { DataSource, EntityManager } from "typeorm";
 import { TelaOrmEntity } from "../../../infrastructure/database/entities/tela.entity.js";
+import { TypeOrmAuditEventsRepository } from "../../audit/infrastructure/typeorm-audit-events.repository.js";
 import { AppError } from "../../../shared/domain/errors/app-error.js";
 import { toBahiaSqlDateTime, normalizeDate } from "../../../shared/utils/date.js";
 import { normalizePecas } from "../../../shared/utils/pecas.js";
@@ -13,6 +14,8 @@ import {
   CreateTelaCommand,
   EditTelaInput,
   PaginatedTelasOutput,
+  ReplaceTelaInput,
+  SearchInactiveTelasInput,
   SearchTelasInput,
 } from "../application/dtos/tela.dto.js";
 
@@ -51,7 +54,11 @@ const generateBarcodeCandidate = () => {
 };
 
 export class TypeOrmTelasRepository implements ITelasRepository {
-  constructor(private readonly dataSource: DataSource) {}
+  private readonly auditRepository: TypeOrmAuditEventsRepository;
+
+  constructor(private readonly dataSource: DataSource) {
+    this.auditRepository = new TypeOrmAuditEventsRepository(dataSource);
+  }
 
   async search(input: SearchTelasInput): Promise<PaginatedTelasOutput<Tela>> {
     const letra = String(input.letra ?? "").trim().toUpperCase();
@@ -132,7 +139,15 @@ export class TypeOrmTelasRepository implements ITelasRepository {
   async create(command: CreateTelaCommand): Promise<Tela> {
     return this.dataSource.transaction(async (manager) => {
       const entity = await this.insertTela(manager, command);
-      return mapTelaEntity(entity);
+      const tela = mapTelaEntity(entity);
+      await this.auditRepository.create({
+        entityType: "TELA",
+        entityId: tela.codbarrastela,
+        action: "TELA_CRIADA",
+        actorUsuario: command.usuarioCreate,
+        afterState: tela as unknown as Record<string, unknown>,
+      }, manager);
+      return tela;
     });
   }
 
@@ -161,6 +176,14 @@ export class TypeOrmTelasRepository implements ITelasRepository {
             codigo: codigoTela,
           });
         }
+
+        await this.auditRepository.create({
+          entityType: "TELA",
+          entityId: codigoTela ?? "",
+          action: "ENDERECO_ATUALIZADO",
+          actorUsuario: input.usuario,
+          afterState: { endereco: novoEndereco },
+        }, manager);
       }
 
       return input.telas.length;
@@ -189,6 +212,14 @@ export class TypeOrmTelasRepository implements ITelasRepository {
             codigo: codigoTela,
           });
         }
+
+        await this.auditRepository.create({
+          entityType: "TELA",
+          entityId: codigoTela,
+          action: input.status === "DESABILITADA" ? "TELA_DESABILITADA" : "STATUS_ATUALIZADO",
+          actorUsuario: input.usuario,
+          afterState: { status: input.status },
+        }, manager);
       }
 
       return input.telas.length;
@@ -196,45 +227,112 @@ export class TypeOrmTelasRepository implements ITelasRepository {
   }
 
   async editByBarcode(codbarrastela: string, data: EditTelaInput, usuario: string): Promise<Tela | null> {
-    const repository = this.dataSource.getRepository(TelaOrmEntity);
-    const entity = await repository.findOne({ where: { codbarrastela } });
+    return this.dataSource.transaction(async (manager) => {
+      const repository = manager.getRepository(TelaOrmEntity);
+      const entity = await repository.findOne({ where: { codbarrastela } });
 
-    if (!entity) {
-      return null;
+      if (!entity) {
+        return null;
+      }
+
+      const before = mapTelaEntity(entity);
+      this.applyTelaPatch(entity, data, usuario);
+
+      const saved = await repository.save(entity);
+      const after = mapTelaEntity(saved);
+      await this.auditRepository.create({
+        entityType: "TELA",
+        entityId: codbarrastela,
+        action: "TELA_EDITADA",
+        actorUsuario: usuario,
+        beforeState: before as unknown as Record<string, unknown>,
+        afterState: after as unknown as Record<string, unknown>,
+      }, manager);
+
+      return after;
+    });
+  }
+
+  async replaceByBarcode(codbarrastela: string, data: ReplaceTelaInput, usuario: string): Promise<Tela | null> {
+    const motivo = String(data.motivo ?? "").trim();
+    if (!motivo) {
+      throw new AppError(400, "MOTIVO_REPOSICAO_OBRIGATORIO", "Informe o motivo da reposição");
     }
 
-    entity.updatedate = new Date(toBahiaSqlDateTime());
-    entity.usuariostatus = usuario;
-    entity.usuarioaltera = usuario;
-    entity.marca = data.marca !== undefined ? String(data.marca || "").trim().toUpperCase() || null : entity.marca;
-    entity.modelo = data.modelo !== undefined ? String(data.modelo || "").trim().toUpperCase() || null : entity.modelo;
-    entity.numerotela = data.numerotela !== undefined
-      ? String(data.numerotela || "").trim().toUpperCase() || null
-      : data.numero !== undefined
-        ? String(data.numero || "").trim().toUpperCase() || null
-        : entity.numerotela;
-    entity.cor = data.cor !== undefined
-      ? parseNullableNumber(data.cor) !== null ? String(parseNullableNumber(data.cor)) : null
-      : entity.cor;
-    entity.fios = data.fios !== undefined
-      ? parseNullableNumber(data.fios) !== null ? String(parseNullableNumber(data.fios)) : null
-      : entity.fios;
-    entity.datafabricacao = data.datafabricacao !== undefined || data.dataFabricacao !== undefined
-      ? normalizeDate(data.datafabricacao ?? data.dataFabricacao)
-      : entity.datafabricacao;
-    entity.pecas = data.pecas !== undefined || data.components !== undefined
-      ? JSON.stringify(normalizePecas(data.pecas ?? data.components))
-      : entity.pecas;
-    entity.status = data.status !== undefined ? normalizeTelaStatus(data.status) : entity.status;
-    entity.endereco = data.endereco !== undefined ? String(data.endereco || "").trim().toUpperCase() || null : entity.endereco;
+    return this.dataSource.transaction(async (manager) => {
+      const repository = manager.getRepository(TelaOrmEntity);
+      const entity = await repository.findOne({ where: { codbarrastela }, lock: { mode: "pessimistic_write" } });
+      if (!entity) {
+        return null;
+      }
 
-    const tamanhoEtiquetaRaw = data.tamanhoEtiqueta ?? data.tamanho_etiqueta;
-    entity.tamanho_etiqueta = tamanhoEtiquetaRaw !== undefined
-      ? String(tamanhoEtiquetaRaw || "").trim().toUpperCase() || null
-      : entity.tamanho_etiqueta;
+      const before = mapTelaEntity(entity);
+      this.applyTelaPatch(entity, { ...data, status: data.status ?? "EM_REPOSICAO" }, usuario);
+      const saved = await repository.save(entity);
+      const after = mapTelaEntity(saved);
 
-    const saved = await repository.save(entity);
-    return mapTelaEntity(saved);
+      await this.auditRepository.create({
+        entityType: "TELA",
+        entityId: codbarrastela,
+        action: "TELA_REPOSTA",
+        actorUsuario: usuario,
+        beforeState: before as unknown as Record<string, unknown>,
+        afterState: after as unknown as Record<string, unknown>,
+        metadata: { motivo },
+      }, manager);
+
+      return after;
+    });
+  }
+
+  async searchInactive(input: SearchInactiveTelasInput) {
+    const offset = (input.page - 1) * input.itemsPerPage;
+    const params = [input.days, input.itemsPerPage, offset];
+    const baseQuery = `
+      WITH last_events AS (
+        SELECT entity_id, MAX(created_at) AS last_event_at
+        FROM fabrica.telas_audit_events
+        WHERE entity_type = 'TELA'
+        GROUP BY entity_id
+      ),
+      telas_base AS (
+        SELECT
+          telas.*,
+          COALESCE(last_events.last_event_at, telas.updatedate, telas.createdate) AS last_movement_at
+        FROM ${TABLE_NAME} telas
+        LEFT JOIN last_events ON last_events.entity_id = telas.codbarrastela
+        WHERE UPPER(COALESCE(telas.status, '')) <> 'DESABILITADA'
+          AND COALESCE(last_events.last_event_at, telas.updatedate, telas.createdate) <= NOW() - ($1::int * INTERVAL '1 day')
+      )
+    `;
+
+    const [countRows, rows] = await Promise.all([
+      this.dataSource.query(`${baseQuery} SELECT COUNT(*)::int AS total FROM telas_base`, [input.days]),
+      this.dataSource.query(
+        `
+          ${baseQuery}
+          SELECT *, FLOOR(EXTRACT(EPOCH FROM (NOW() - last_movement_at)) / 86400)::int AS days_without_movement
+          FROM telas_base
+          ORDER BY last_movement_at ASC NULLS FIRST
+          LIMIT $2
+          OFFSET $3
+        `,
+        params,
+      ),
+    ]);
+
+    const total = Number(countRows[0]?.total ?? 0);
+    return {
+      telas: rows.map((row: TelaOrmEntity & { last_movement_at: Date | null; days_without_movement: number | null }) => ({
+        ...mapTelaEntity(row),
+        lastMovementAt: row.last_movement_at,
+        daysWithoutMovement: row.days_without_movement,
+      })),
+      total,
+      page: input.page,
+      itemsPerPage: input.itemsPerPage,
+      totalPages: total > 0 ? Math.ceil(total / input.itemsPerPage) : 0,
+    };
   }
 
   async createManyFromSolicitacao(
@@ -331,6 +429,38 @@ export class TypeOrmTelasRepository implements ITelasRepository {
     });
 
     return manager.getRepository(TelaOrmEntity).save(entity);
+  }
+
+  private applyTelaPatch(entity: TelaOrmEntity, data: EditTelaInput, usuario: string) {
+    entity.updatedate = new Date(toBahiaSqlDateTime());
+    entity.usuariostatus = usuario;
+    entity.usuarioaltera = usuario;
+    entity.marca = data.marca !== undefined ? String(data.marca || "").trim().toUpperCase() || null : entity.marca;
+    entity.modelo = data.modelo !== undefined ? String(data.modelo || "").trim().toUpperCase() || null : entity.modelo;
+    entity.numerotela = data.numerotela !== undefined
+      ? String(data.numerotela || "").trim().toUpperCase() || null
+      : data.numero !== undefined
+        ? String(data.numero || "").trim().toUpperCase() || null
+        : entity.numerotela;
+    entity.cor = data.cor !== undefined
+      ? parseNullableNumber(data.cor) !== null ? String(parseNullableNumber(data.cor)) : null
+      : entity.cor;
+    entity.fios = data.fios !== undefined
+      ? parseNullableNumber(data.fios) !== null ? String(parseNullableNumber(data.fios)) : null
+      : entity.fios;
+    entity.datafabricacao = data.datafabricacao !== undefined || data.dataFabricacao !== undefined
+      ? normalizeDate(data.datafabricacao ?? data.dataFabricacao)
+      : entity.datafabricacao;
+    entity.pecas = data.pecas !== undefined || data.components !== undefined
+      ? JSON.stringify(normalizePecas(data.pecas ?? data.components))
+      : entity.pecas;
+    entity.status = data.status !== undefined ? normalizeTelaStatus(data.status) : entity.status;
+    entity.endereco = data.endereco !== undefined ? String(data.endereco || "").trim().toUpperCase() || null : entity.endereco;
+
+    const tamanhoEtiquetaRaw = data.tamanhoEtiqueta ?? data.tamanho_etiqueta;
+    entity.tamanho_etiqueta = tamanhoEtiquetaRaw !== undefined
+      ? String(tamanhoEtiquetaRaw || "").trim().toUpperCase() || null
+      : entity.tamanho_etiqueta;
   }
 
   private async generateUniqueBarcode(manager: EntityManager): Promise<string> {

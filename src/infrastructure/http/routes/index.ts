@@ -1,48 +1,68 @@
 import { Express, Router } from "express";
 import { AppDataSource } from "../../../config/database.js";
-import { asyncHandler } from "../middlewares/async-handler.js";
-import { verifyToken } from "../middlewares/auth.js";
-import { sendSuccess } from "../../../shared/http/http-response.js";
-import { TypeOrmTelasRepository } from "../../../modules/telas/infrastructure/typeorm-telas.repository.js";
-import { SearchTelasUseCase } from "../../../modules/telas/application/use-cases/search-telas.use-case.js";
+import { TypeOrmAuditEventsRepository } from "../../../modules/audit/infrastructure/typeorm-audit-events.repository.js";
+import { TypeOrmAppConfigRepository } from "../../../modules/config/infrastructure/typeorm-app-config.repository.js";
+import { AttendSolicitacaoUseCase } from "../../../modules/solicitacoes/application/use-cases/attend-solicitacao.use-case.js";
+import { CompleteSolicitacaoUseCase } from "../../../modules/solicitacoes/application/use-cases/complete-solicitacao.use-case.js";
+import { CreateSolicitacaoUseCase } from "../../../modules/solicitacoes/application/use-cases/create-solicitacao.use-case.js";
+import { DeliverSolicitacaoUseCase } from "../../../modules/solicitacoes/application/use-cases/deliver-solicitacao.use-case.js";
+import { GetSolicitacaoByIdUseCase } from "../../../modules/solicitacoes/application/use-cases/get-solicitacao-by-id.use-case.js";
+import { ReturnSolicitacaoUseCase } from "../../../modules/solicitacoes/application/use-cases/return-solicitacao.use-case.js";
+import { SearchSolicitacoesUseCase } from "../../../modules/solicitacoes/application/use-cases/search-solicitacoes.use-case.js";
+import { StartSolicitacaoUseCase } from "../../../modules/solicitacoes/application/use-cases/start-solicitacao.use-case.js";
+import { normalizeSolicitacaoStatus } from "../../../modules/solicitacoes/domain/solicitacao-status.js";
+import { TypeOrmSolicitacoesRepository } from "../../../modules/solicitacoes/infrastructure/typeorm-solicitacoes.repository.js";
 import { CreateTelaUseCase } from "../../../modules/telas/application/use-cases/create-tela.use-case.js";
+import { EditTelaUseCase } from "../../../modules/telas/application/use-cases/edit-tela.use-case.js";
+import { SearchTelasUseCase } from "../../../modules/telas/application/use-cases/search-telas.use-case.js";
 import { UpdatePosicaoTelasUseCase } from "../../../modules/telas/application/use-cases/update-posicao-telas.use-case.js";
 import { UpdateStatusTelasUseCase } from "../../../modules/telas/application/use-cases/update-status-telas.use-case.js";
-import { EditTelaUseCase } from "../../../modules/telas/application/use-cases/edit-tela.use-case.js";
-import { TelasController } from "../../../modules/telas/presentation/http/telas.controller.js";
-import { TypeOrmSolicitacoesRepository } from "../../../modules/solicitacoes/infrastructure/typeorm-solicitacoes.repository.js";
-import { SearchSolicitacoesUseCase } from "../../../modules/solicitacoes/application/use-cases/search-solicitacoes.use-case.js";
-import { GetSolicitacaoByIdUseCase } from "../../../modules/solicitacoes/application/use-cases/get-solicitacao-by-id.use-case.js";
-import { CreateSolicitacaoUseCase } from "../../../modules/solicitacoes/application/use-cases/create-solicitacao.use-case.js";
-import { AttendSolicitacaoUseCase } from "../../../modules/solicitacoes/application/use-cases/attend-solicitacao.use-case.js";
-import { StartSolicitacaoUseCase } from "../../../modules/solicitacoes/application/use-cases/start-solicitacao.use-case.js";
-import { CompleteSolicitacaoUseCase } from "../../../modules/solicitacoes/application/use-cases/complete-solicitacao.use-case.js";
-import { DeliverSolicitacaoUseCase } from "../../../modules/solicitacoes/application/use-cases/deliver-solicitacao.use-case.js";
-import { ReturnSolicitacaoUseCase } from "../../../modules/solicitacoes/application/use-cases/return-solicitacao.use-case.js";
-import { SolicitacoesController } from "../../../modules/solicitacoes/presentation/http/solicitacoes.controller.js";
+import { TypeOrmTelasRepository } from "../../../modules/telas/infrastructure/typeorm-telas.repository.js";
+import { normalizeUserRole, USER_ROLES } from "../../../modules/users/domain/user-role.js";
+import { TypeOrmUsersRepository } from "../../../modules/users/infrastructure/typeorm-users.repository.js";
+import { getActiveAppUser, getAuthenticatedMatricula, getAuthenticatedUser } from "../../../shared/auth/auth-context.js";
+import { AppError } from "../../../shared/domain/errors/app-error.js";
+import { sendSuccess } from "../../../shared/http/http-response.js";
+import { normalizeDate } from "../../../shared/utils/date.js";
+import { parseMatricula, parsePositiveInt } from "../../../shared/utils/parsers.js";
+import { asyncHandler } from "../middlewares/async-handler.js";
+import { loadActiveUser, requireRoles } from "../middlewares/active-user.js";
+import { verifyToken } from "../middlewares/auth.js";
+
+const parseBooleanQuery = (value: unknown): boolean | null => {
+  if (value === undefined || value === null || value === "") return null;
+  const normalized = String(value).trim().toLowerCase();
+  if (["true", "1", "sim", "ativo"].includes(normalized)) return true;
+  if (["false", "0", "nao", "não", "inativo"].includes(normalized)) return false;
+  return null;
+};
+
+const getActorUsuario = (req: Parameters<typeof getAuthenticatedUser>[0]) => {
+  const jwtUser = getAuthenticatedUser(req);
+  return String(jwtUser.usuario ?? jwtUser.matricula ?? "").trim().toUpperCase();
+};
 
 export const registerRoutes = (app: Express) => {
   const telasRepository = new TypeOrmTelasRepository(AppDataSource);
   const solicitacoesRepository = new TypeOrmSolicitacoesRepository(AppDataSource);
+  const usersRepository = new TypeOrmUsersRepository(AppDataSource);
+  const auditRepository = new TypeOrmAuditEventsRepository(AppDataSource);
+  const configRepository = new TypeOrmAppConfigRepository(AppDataSource);
 
-  const telasController = new TelasController(
-    new SearchTelasUseCase(telasRepository),
-    new CreateTelaUseCase(telasRepository),
-    new UpdatePosicaoTelasUseCase(telasRepository),
-    new UpdateStatusTelasUseCase(telasRepository),
-    new EditTelaUseCase(telasRepository),
-  );
+  const searchTelasUseCase = new SearchTelasUseCase(telasRepository);
+  const createTelaUseCase = new CreateTelaUseCase(telasRepository);
+  const updatePosicaoTelasUseCase = new UpdatePosicaoTelasUseCase(telasRepository);
+  const updateStatusTelasUseCase = new UpdateStatusTelasUseCase(telasRepository);
+  const editTelaUseCase = new EditTelaUseCase(telasRepository);
 
-  const solicitacoesController = new SolicitacoesController(
-    new SearchSolicitacoesUseCase(solicitacoesRepository),
-    new GetSolicitacaoByIdUseCase(solicitacoesRepository),
-    new CreateSolicitacaoUseCase(solicitacoesRepository),
-    new AttendSolicitacaoUseCase(solicitacoesRepository),
-    new StartSolicitacaoUseCase(solicitacoesRepository),
-    new CompleteSolicitacaoUseCase(solicitacoesRepository),
-    new DeliverSolicitacaoUseCase(solicitacoesRepository),
-    new ReturnSolicitacaoUseCase(solicitacoesRepository),
-  );
+  const searchSolicitacoesUseCase = new SearchSolicitacoesUseCase(solicitacoesRepository);
+  const getSolicitacaoByIdUseCase = new GetSolicitacaoByIdUseCase(solicitacoesRepository);
+  const createSolicitacaoUseCase = new CreateSolicitacaoUseCase(solicitacoesRepository);
+  const attendSolicitacaoUseCase = new AttendSolicitacaoUseCase(solicitacoesRepository);
+  const startSolicitacaoUseCase = new StartSolicitacaoUseCase(solicitacoesRepository);
+  const completeSolicitacaoUseCase = new CompleteSolicitacaoUseCase(solicitacoesRepository);
+  const deliverSolicitacaoUseCase = new DeliverSolicitacaoUseCase(solicitacoesRepository);
+  const returnSolicitacaoUseCase = new ReturnSolicitacaoUseCase(solicitacoesRepository);
 
   app.get("/", (_req, res) => {
     return sendSuccess(res, 200, { message: "Servidor de Telas ativo" });
@@ -50,30 +70,293 @@ export const registerRoutes = (app: Express) => {
 
   app.get("/health", asyncHandler(async (_req, res) => {
     await AppDataSource.query("SELECT 1");
+    return sendSuccess(res, 200, { message: "healthy", db: true });
+  }));
 
+  const v1 = Router();
+  v1.use(verifyToken);
+  v1.use(loadActiveUser(usersRepository));
+
+  v1.get("/me", asyncHandler(async (req, res) => {
     return sendSuccess(res, 200, {
-      message: "healthy",
-      db: true,
+      user: getActiveAppUser(req),
+      token: getAuthenticatedUser(req),
     });
   }));
 
-  const protectedRouter = Router();
-  protectedRouter.use(verifyToken);
+  v1.get("/users", requireRoles(USER_ROLES.ADMIN), asyncHandler(async (req, res) => {
+    const role = normalizeUserRole(req.query.role);
+    const result = await usersRepository.search({
+      search: String(req.query.search ?? ""),
+      role,
+      active: parseBooleanQuery(req.query.active),
+      page: parsePositiveInt(req.query.page, 1, 1000000),
+      itemsPerPage: parsePositiveInt(req.query.itemsPerPage, 10, 200),
+    });
 
-  protectedRouter.get("/buscar-telas", asyncHandler(telasController.search));
-  protectedRouter.post("/cadastrar-tela", asyncHandler(telasController.create));
-  protectedRouter.put("/atualizar-posicao", asyncHandler(telasController.updatePosicao));
-  protectedRouter.put("/atualizar-status", asyncHandler(telasController.updateStatus));
-  protectedRouter.put("/editar-tela", asyncHandler(telasController.edit));
+    return sendSuccess(res, 200, result);
+  }));
 
-  protectedRouter.get("/solicitacoes-telas", asyncHandler(solicitacoesController.search));
-  protectedRouter.get("/solicitacoes-telas/:id", asyncHandler(solicitacoesController.getById));
-  protectedRouter.post("/solicitacoes-telas", asyncHandler(solicitacoesController.create));
-  protectedRouter.put("/solicitacoes-telas/:id/attend", asyncHandler(solicitacoesController.attend));
-  protectedRouter.put("/solicitacoes-telas/:id/start", asyncHandler(solicitacoesController.start));
-  protectedRouter.put("/solicitacoes-telas/:id/complete", asyncHandler(solicitacoesController.complete));
-  protectedRouter.put("/solicitacoes-telas/:id/deliver", asyncHandler(solicitacoesController.deliver));
-  protectedRouter.put("/solicitacoes-telas/:id/return", asyncHandler(solicitacoesController.return));
+  v1.post("/users", requireRoles(USER_ROLES.ADMIN), asyncHandler(async (req, res) => {
+    const role = normalizeUserRole(req.body?.role);
+    if (!role) throw new AppError(400, "PAPEL_INVALIDO", "Papel de usuário inválido");
 
-  app.use(protectedRouter);
+    const user = await usersRepository.create({
+      matricula: parseMatricula(req.body?.matricula) ?? 0,
+      nome: req.body?.nome,
+      usuario: req.body?.usuario,
+      setor: req.body?.setor,
+      unidade: req.body?.unidade,
+      role,
+      active: req.body?.active,
+    });
+
+    await auditRepository.create({
+      entityType: "USUARIO",
+      entityId: String(user.matricula),
+      action: "USUARIO_CRIADO",
+      actorMatricula: getAuthenticatedMatricula(req),
+      afterState: user as unknown as Record<string, unknown>,
+    });
+
+    return sendSuccess(res, 201, { message: "success", user });
+  }));
+
+  v1.patch("/users/:id", requireRoles(USER_ROLES.ADMIN), asyncHandler(async (req, res) => {
+    const user = await usersRepository.update(String(req.params.id), {
+      matricula: req.body?.matricula !== undefined ? parseMatricula(req.body.matricula) ?? 0 : undefined,
+      nome: req.body?.nome,
+      usuario: req.body?.usuario,
+      setor: req.body?.setor,
+      unidade: req.body?.unidade,
+      role: req.body?.role,
+      active: req.body?.active,
+    });
+
+    await auditRepository.create({
+      entityType: "USUARIO",
+      entityId: String(user.matricula),
+      action: "USUARIO_ATUALIZADO",
+      actorMatricula: getAuthenticatedMatricula(req),
+      afterState: user as unknown as Record<string, unknown>,
+    });
+
+    return sendSuccess(res, 200, { message: "success", user });
+  }));
+
+  v1.get("/telas", asyncHandler(async (req, res) => {
+    const result = await searchTelasUseCase.execute({
+      letra: req.query.letra as string | undefined,
+      modelo: req.query.modelo as string | undefined,
+      status: req.query.status as string | undefined,
+      endereco: req.query.endereco as string | undefined,
+      search: req.query.search as string | undefined,
+      page: parsePositiveInt(req.query.page, 1, 1000000),
+      itemsPerPage: parsePositiveInt(req.query.itemsPerPage, 10, 200),
+    });
+
+    return sendSuccess(res, 200, result);
+  }));
+
+  v1.get("/telas/sem-movimentacao", asyncHandler(async (req, res) => {
+    const config = await configRepository.getInactiveTelasConfig();
+    const days = parsePositiveInt(req.query.days, config.days, 3650);
+    const result = await telasRepository.searchInactive({
+      days,
+      page: parsePositiveInt(req.query.page, 1, 1000000),
+      itemsPerPage: parsePositiveInt(req.query.itemsPerPage, 10, 200),
+    });
+
+    return sendSuccess(res, 200, { days, ...result });
+  }));
+
+  v1.post(
+    "/telas",
+    requireRoles(USER_ROLES.ADMIN, USER_ROLES.OPERADOR_TELAS),
+    asyncHandler(async (req, res) => {
+      const tela = await createTelaUseCase.execute(req.body ?? {}, getActorUsuario(req));
+      return sendSuccess(res, 201, { message: "success", tela });
+    }),
+  );
+
+  v1.patch(
+    "/telas/:codigo",
+    requireRoles(USER_ROLES.ADMIN, USER_ROLES.OPERADOR_TELAS),
+    asyncHandler(async (req, res) => {
+      const tela = await editTelaUseCase.execute(String(req.params.codigo).trim().toUpperCase(), req.body ?? {}, getActorUsuario(req));
+      return sendSuccess(res, 200, { message: "success", tela });
+    }),
+  );
+
+  v1.patch(
+    "/telas/:codigo/endereco",
+    requireRoles(USER_ROLES.ADMIN, USER_ROLES.OPERADOR_TELAS, USER_ROLES.MOVIMENTADOR),
+    asyncHandler(async (req, res) => {
+      const result = await updatePosicaoTelasUseCase.execute(
+        String(req.params.codigo).trim().toUpperCase(),
+        req.body?.endereco,
+        getActorUsuario(req),
+      );
+      return sendSuccess(res, 200, { message: "success", ...result });
+    }),
+  );
+
+  v1.patch(
+    "/telas/:codigo/status",
+    requireRoles(USER_ROLES.ADMIN, USER_ROLES.OPERADOR_TELAS),
+    asyncHandler(async (req, res) => {
+      const result = await updateStatusTelasUseCase.execute(
+        String(req.params.codigo).trim().toUpperCase(),
+        req.body?.status,
+        getActorUsuario(req),
+      );
+      return sendSuccess(res, 200, { message: "success", ...result });
+    }),
+  );
+
+  v1.post(
+    "/telas/:codigo/reposicoes",
+    requireRoles(USER_ROLES.ADMIN, USER_ROLES.OPERADOR_TELAS),
+    asyncHandler(async (req, res) => {
+      const tela = await telasRepository.replaceByBarcode(
+        String(req.params.codigo).trim().toUpperCase(),
+        req.body ?? {},
+        getActorUsuario(req),
+      );
+      if (!tela) throw new AppError(404, "TELA_NAO_ENCONTRADA", "Tela não encontrada para reposição");
+      return sendSuccess(res, 200, { message: "success", tela });
+    }),
+  );
+
+  v1.get("/solicitacoes", asyncHandler(async (req, res) => {
+    const result = await searchSolicitacoesUseCase.execute({
+      status: req.query.status ? normalizeSolicitacaoStatus(req.query.status) : null,
+      solicitante: parseMatricula(req.query.solicitante),
+      search: String(req.query.search ?? ""),
+      dateFrom: normalizeDate(req.query.dateFrom ?? req.query.dataInicial),
+      dateTo: normalizeDate(req.query.dateTo ?? req.query.dataFinal),
+      page: parsePositiveInt(req.query.page, 1, 1000000),
+      itemsPerPage: parsePositiveInt(req.query.itemsPerPage, 10, 200),
+    });
+
+    return sendSuccess(res, 200, result);
+  }));
+
+  v1.get("/solicitacoes/:id", asyncHandler(async (req, res) => {
+    const solicitacao = await getSolicitacaoByIdUseCase.execute(String(req.params.id));
+    return sendSuccess(res, 200, { solicitacao });
+  }));
+
+  v1.post("/solicitacoes", asyncHandler(async (req, res) => {
+    const data = req.body ?? {};
+    const items = Array.isArray(data?.dados_pedido?.items)
+      ? data.dados_pedido.items
+      : Array.isArray(data?.items)
+        ? data.items
+        : [];
+
+    const solicitacao = await createSolicitacaoUseCase.execute({
+      solicitante: getAuthenticatedMatricula(req),
+      items,
+      motivo: String(data.motivo ?? "").trim() || null,
+      observacaoPedido: String(data.observacao_pedido ?? data.observacaoPedido ?? "").trim() || null,
+      turnoPedido: String(data.turno_pedido ?? data.turnoPedido ?? "").trim().toUpperCase() || null,
+    });
+
+    return sendSuccess(res, 201, { message: "success", solicitacao });
+  }));
+
+  v1.patch(
+    "/solicitacoes/:id/atendimento",
+    requireRoles(USER_ROLES.ADMIN, USER_ROLES.OPERADOR_TELAS, USER_ROLES.MOVIMENTADOR),
+    asyncHandler(async (req, res) => {
+      const solicitacao = await attendSolicitacaoUseCase.execute(
+        String(req.params.id),
+        String(req.body?.decision ?? req.body?.status ?? ""),
+        getAuthenticatedMatricula(req),
+        String(req.body?.observacao_conferente ?? req.body?.observacaoConferente ?? "").trim() || null,
+      );
+      return sendSuccess(res, 200, { message: "success", solicitacao });
+    }),
+  );
+
+  v1.patch(
+    "/solicitacoes/:id/inicio",
+    requireRoles(USER_ROLES.ADMIN, USER_ROLES.OPERADOR_TELAS, USER_ROLES.MOVIMENTADOR),
+    asyncHandler(async (req, res) => {
+      const solicitacao = await startSolicitacaoUseCase.execute(
+        String(req.params.id),
+        String(req.body?.status ?? req.body?.targetStatus ?? ""),
+        getAuthenticatedMatricula(req),
+        getActorUsuario(req),
+      );
+      return sendSuccess(res, 200, { message: "success", solicitacao });
+    }),
+  );
+
+  v1.patch(
+    "/solicitacoes/:id/conclusao",
+    requireRoles(USER_ROLES.ADMIN, USER_ROLES.OPERADOR_TELAS, USER_ROLES.MOVIMENTADOR),
+    asyncHandler(async (req, res) => {
+      const solicitacao = await completeSolicitacaoUseCase.execute(String(req.params.id), getAuthenticatedMatricula(req));
+      return sendSuccess(res, 200, { message: "success", solicitacao });
+    }),
+  );
+
+  v1.patch(
+    "/solicitacoes/:id/entrega",
+    requireRoles(USER_ROLES.ADMIN, USER_ROLES.OPERADOR_TELAS, USER_ROLES.MOVIMENTADOR),
+    asyncHandler(async (req, res) => {
+      const solicitacao = await deliverSolicitacaoUseCase.execute(
+        String(req.params.id),
+        getAuthenticatedMatricula(req),
+        parseMatricula(req.body?.user_recebimento ?? req.body?.userRecebimento) ?? 0,
+        parseMatricula(req.body?.user_conferente ?? req.body?.userConferente) ?? 0,
+      );
+      return sendSuccess(res, 200, { message: "success", solicitacao });
+    }),
+  );
+
+  v1.patch(
+    "/solicitacoes/:id/devolucao",
+    requireRoles(USER_ROLES.ADMIN, USER_ROLES.OPERADOR_TELAS, USER_ROLES.MOVIMENTADOR),
+    asyncHandler(async (req, res) => {
+      const solicitacao = await returnSolicitacaoUseCase.execute(
+        String(req.params.id),
+        getAuthenticatedMatricula(req),
+        parseMatricula(req.body?.user_recebimento ?? req.body?.userRecebimento) ?? 0,
+        parseMatricula(req.body?.user_conferente ?? req.body?.userConferente) ?? 0,
+        String(req.body?.observacao_conferente ?? req.body?.observacaoConferente ?? "").trim(),
+      );
+      return sendSuccess(res, 200, { message: "success", solicitacao });
+    }),
+  );
+
+  v1.get("/config/telas-sem-movimentacao", asyncHandler(async (_req, res) => {
+    return sendSuccess(res, 200, { config: await configRepository.getInactiveTelasConfig() });
+  }));
+
+  v1.patch(
+    "/config/telas-sem-movimentacao",
+    requireRoles(USER_ROLES.ADMIN),
+    asyncHandler(async (req, res) => {
+      const config = await configRepository.updateInactiveTelasConfig(Number(req.body?.days), getAuthenticatedMatricula(req));
+      return sendSuccess(res, 200, { message: "success", config });
+    }),
+  );
+
+  v1.get("/audit-events", requireRoles(USER_ROLES.ADMIN), asyncHandler(async (req, res) => {
+    const result = await auditRepository.search({
+      entityType: req.query.entityType as string | undefined,
+      entityId: req.query.entityId as string | undefined,
+      action: req.query.action as string | undefined,
+      actorMatricula: parseMatricula(req.query.actorMatricula),
+      page: parsePositiveInt(req.query.page, 1, 1000000),
+      itemsPerPage: parsePositiveInt(req.query.itemsPerPage, 10, 200),
+    });
+
+    return sendSuccess(res, 200, result);
+  }));
+
+  app.use("/v1", v1);
 };

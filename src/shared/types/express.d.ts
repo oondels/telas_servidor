@@ -1,4 +1,5 @@
 import { JwtPayload } from "jsonwebtoken";
+import { AppUser } from "../../modules/users/domain/app-user.js";
 
 export interface AuthenticatedUser extends JwtPayload {
   id?: string;
@@ -17,6 +18,7 @@ declare global {
     interface Request {
       requestId?: string;
       user?: AuthenticatedUser;
+      appUser?: AppUser;
     }
   }
 }
