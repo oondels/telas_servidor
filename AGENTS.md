@@ -10,10 +10,10 @@ O projeto e backend-only neste repositorio e usa TypeScript, Express, TypeORM, P
 
 1. Usuarios autenticados acessam as rotas de negocio por JWT no cookie configurado em `JWT_COOKIE_NAME`.
 2. Telas podem ser cadastradas, consultadas, editadas, enderecadas fisicamente e ter status atualizado.
-3. Solicitantes autorizados podem criar solicitacoes de telas com ao menos um item valido.
-4. Gestores autorizados podem atender, iniciar, concluir, entregar e devolver solicitacoes.
+3. Usuarios ativos no banco podem criar solicitacoes de telas com ao menos um item valido.
+4. Usuarios ativos com papel interno adequado podem atender, iniciar, concluir, entregar e devolver solicitacoes.
 5. Transicoes de solicitacao devem respeitar o fluxo documentado em `spec/backend/BUSINESS_RULES.md`.
-6. Operacoes criticas devem preservar rastreabilidade de usuario, datas, status e observacoes quando aplicavel.
+6. Operacoes criticas devem registrar audit log append-only quando aplicavel.
 
 ## Regras de Operacao
 
@@ -22,6 +22,9 @@ O projeto e backend-only neste repositorio e usa TypeScript, Express, TypeORM, P
    - `src/modules/telas` (dominio, aplicacao, infraestrutura e HTTP de telas)
    - `src/modules/solicitacoes` (dominio, aplicacao, infraestrutura e HTTP de solicitacoes)
    - `src/infrastructure` (HTTP, middlewares, rotas, entidades e migrations)
+   - `src/modules/users` (usuarios internos, papeis e RBAC)
+   - `src/modules/audit` (eventos append-only)
+   - `src/modules/config` (configuracoes operacionais globais)
    - `src/shared` e `src/modules/shared` (erros, auth-context, respostas, parsers, constantes compartilhadas)
    - `src/config` (env e database)
    - `spec` (documentacao tecnica primaria)
@@ -64,7 +67,9 @@ O projeto e backend-only neste repositorio e usa TypeScript, Express, TypeORM, P
 - Modulos principais:
   - `src/modules/telas`: cadastro, busca, edicao, enderecamento e status de telas.
   - `src/modules/solicitacoes`: criacao, consulta e fluxo operacional de solicitacoes.
-  - `src/modules/shared`: constantes compartilhadas de acesso/RBAC por matricula.
+  - `src/modules/users`: usuarios internos, papeis e RBAC.
+  - `src/modules/audit`: eventos append-only.
+  - `src/modules/config`: configuracoes operacionais globais.
 - Camadas esperadas por modulo:
   - `domain`: tipos, status e regras puras do dominio.
   - `application`: DTOs, contratos de repository e use cases.
@@ -103,10 +108,10 @@ O projeto e backend-only neste repositorio e usa TypeScript, Express, TypeORM, P
 - Manter validacao de ambiente centralizada em `src/config/env.ts`.
 - Manter conexao PostgreSQL centralizada em `src/config/database.ts`.
 - Mudancas em CORS, cookie, JWT ou auth devem ser documentadas em `spec/backend/INTEGRATIONS.md`.
-- Autorizacao por matricula deve continuar centralizada em constantes e helpers compartilhados, sem duplicacao espalhada.
+- Autorizacao deve usar usuario ativo e papel interno carregado do banco; nao introduza novas listas hardcoded de matriculas.
 - O backend e a fonte de verdade para permissao; nao assumir autorizacao por cliente externo.
 
-## 5) Git Workflow -> Utilizar skill de commit (`./.codex/skills/commit-changes/SKILL.md`)
+## 5) Git Workflow
 
 - Conventional commits: `feat(<scope>):`, `fix(<scope>):`, `refactor(<scope>):`, `docs(<scope>):`, `chore(<scope>):`, `test(<scope>):`, `perf(<scope>):`.
 - Scopes recomendados: `api`, `auth`, `telas`, `solicitacoes`, `db`, `infra`, `spec`, `docs`.
@@ -122,6 +127,9 @@ O projeto e backend-only neste repositorio e usa TypeScript, Express, TypeORM, P
 - Persistencia: `src/infrastructure/database/{entities,migrations}`
 - Telas: `src/modules/telas/{domain,application,infrastructure,presentation}`
 - Solicitacoes: `src/modules/solicitacoes/{domain,application,infrastructure,presentation}`
+- Usuarios/RBAC: `src/modules/users`
+- Auditoria: `src/modules/audit`
+- Configuracoes: `src/modules/config`
 - Compartilhado: `src/shared/{auth,domain,http,types,utils}` e `src/modules/shared`
 - Documentacao:
   - `spec/DESIGN_SPEC.md`
@@ -129,7 +137,7 @@ O projeto e backend-only neste repositorio e usa TypeScript, Express, TypeORM, P
 
 ## 7) Skills Locais Codex
 
-- `./.codex/skills/commit-changes/SKILL.md`: protocolo para preparar e criar commits focados.
+- Nenhuma skill local foi detectada neste repositorio no momento.
 
 ## 8) Protocolo de Uso das Specs
 

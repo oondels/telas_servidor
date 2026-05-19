@@ -1,260 +1,169 @@
 # Backend Routes
 
-Todas as rotas de negocio sao protegidas por `verifyToken`, que le o JWT do cookie configurado em `JWT_COOKIE_NAME`, valida com `JWT_SECRET` e injeta o payload em `req.user`.
+As rotas publicas permanecem em `/` e `/health`. Toda API de negocio usa `/v1`, exige JWT valido no cookie `JWT_COOKIE_NAME` e exige usuario ativo em `fabrica.telas_usuarios`.
 
 ## Publicas
 
-### `GET /`
+- `GET /`: status basico da API.
+- `GET /health`: valida API e PostgreSQL com `SELECT 1`.
 
-Retorna status basico da API.
+## Autenticacao e Usuario
 
-Resposta `200`:
+### `GET /v1/me`
+
+Retorna o usuario interno ativo e o payload JWT recebido.
+
+## Usuarios
+
+Requer `ADMIN`.
+
+- `GET /v1/users`: lista usuarios por `search`, `role`, `active`, `page`, `itemsPerPage`.
+- `POST /v1/users`: cria usuario interno.
+- `PATCH /v1/users/:id`: atualiza matricula, nome, usuario, setor, unidade, papel e ativo.
+
+Body de criacao/edicao:
 
 ```json
 {
-  "message": "Servidor de Telas ativo"
+  "matricula": 3020495,
+  "nome": "Nome",
+  "usuario": "USUARIO.SOBRENOME",
+  "setor": "AUTOMACAO",
+  "unidade": "SEST",
+  "role": "ADMIN",
+  "active": true
 }
 ```
 
-### `GET /health`
+Papeis permitidos:
 
-Executa `SELECT 1` no PostgreSQL e retorna saude da API e banco.
-
-Resposta `200`:
-
-```json
-{
-  "message": "healthy",
-  "db": true
-}
-```
+- `ADMIN`
+- `OPERADOR_TELAS`
+- `MOVIMENTADOR`
+- `USUARIO_PRODUCAO`
 
 ## Telas
 
-### `GET /buscar-telas`
+### `GET /v1/telas`
 
-Busca telas com filtros e paginacao.
+Lista telas com `letra`, `modelo`, `status`, `endereco`, `search`, `page`, `itemsPerPage`.
 
-Query params:
+### `GET /v1/telas/sem-movimentacao`
 
-- `letra`
-- `modelo`
-- `status`
-- `endereco`
-- `search`
-- `page` (padrao `1`)
-- `itemsPerPage` (padrao `10`, maximo `200`)
+Lista telas sem movimentacao pelo ultimo audit log de `TELA`, com fallback para `updatedate`/`createdate`.
 
-Resposta `200`: resultado paginado retornado pelo repository de telas.
+Query:
 
-### `POST /cadastrar-tela`
+- `days`: sobrescreve temporariamente o limite global.
+- `page`
+- `itemsPerPage`
 
-Cadastra uma tela. O usuario responsavel vem do JWT (`usuario` ou `matricula`).
+### `POST /v1/telas`
 
-Body: dados de tela aceitos por `CreateTelaInput`.
+Requer `ADMIN` ou `OPERADOR_TELAS`. Cadastra tela.
 
-Resposta `201`:
+### `PATCH /v1/telas/:codigo`
 
-```json
-{
-  "message": "success",
-  "id": 1,
-  "tela": {}
-}
-```
+Requer `ADMIN` ou `OPERADOR_TELAS`. Edita tela pelo codigo de barras.
 
-### `PUT /atualizar-posicao`
+### `PATCH /v1/telas/:codigo/endereco`
 
-Atualiza endereco de uma ou mais telas.
+Requer `ADMIN`, `OPERADOR_TELAS` ou `MOVIMENTADOR`. Atualiza endereco da tela.
 
 Body:
 
 ```json
 {
-  "telas": "TELA1/TELA2",
-  "endereco": "A1/B2"
+  "endereco": "A1"
 }
 ```
 
-Regras:
+### `PATCH /v1/telas/:codigo/status`
 
-- `telas` aceita valores separados por `/`.
-- `endereco` aceita um unico endereco para todas as telas ou uma lista com a mesma quantidade de telas.
-
-Resposta `200`:
-
-```json
-{
-  "message": "success",
-  "atualizadas": 2
-}
-```
-
-### `PUT /atualizar-status`
-
-Atualiza status de uma ou mais telas.
+Requer `ADMIN` ou `OPERADOR_TELAS`. Atualiza status da tela.
 
 Body:
 
 ```json
 {
-  "telas": "TELA1/TELA2",
-  "status": "ARMAZENADA"
+  "status": "DESABILITADA"
 }
 ```
 
-Resposta `200`:
+### `POST /v1/telas/:codigo/reposicoes`
+
+Requer `ADMIN` ou `OPERADOR_TELAS`. Registra reposicao mantendo a mesma tela/codigo.
+
+Body minimo:
 
 ```json
 {
-  "message": "success",
-  "atualizadas": 2,
-  "status": "ARMAZENADA"
-}
-```
-
-### `PUT /editar-tela`
-
-Edita uma tela pelo codigo de barras.
-
-Body:
-
-```json
-{
-  "codbarrastela": "ABC123"
-}
-```
-
-Tambem aceita `codBarrasTela` como alias do codigo.
-
-Resposta `200`:
-
-```json
-{
-  "message": "success",
-  "tela": {}
+  "motivo": "Substituicao fisica",
+  "status": "EM_REPOSICAO"
 }
 ```
 
 ## Solicitacoes
 
-### `GET /solicitacoes-telas`
+### `GET /v1/solicitacoes`
 
-Busca solicitacoes com filtros e paginacao.
+Lista solicitacoes com `status`, `solicitante`, `search`, `dateFrom`/`dataInicial`, `dateTo`/`dataFinal`, `page`, `itemsPerPage`.
 
-Query params:
+### `GET /v1/solicitacoes/:id`
 
-- `status`
-- `solicitante`
-- `search`
-- `dateFrom` ou `dataInicial`
-- `dateTo` ou `dataFinal`
-- `page` (padrao `1`)
-- `itemsPerPage` (padrao `10`, maximo `200`)
+Detalha uma solicitacao.
 
-Resposta `200`: resultado paginado de solicitacoes.
+### `POST /v1/solicitacoes`
 
-### `GET /solicitacoes-telas/:id`
-
-Busca uma solicitacao por id.
-
-Resposta `200`:
-
-```json
-{
-  "solicitacao": {}
-}
-```
-
-### `POST /solicitacoes-telas`
-
-Cria uma solicitacao. A matricula do solicitante vem do JWT.
+Cria solicitacao para a matricula autenticada. Qualquer usuario ativo pode criar.
 
 Body:
 
 ```json
 {
-  "items": [],
-  "motivo": "texto opcional",
-  "observacao_pedido": "texto opcional",
+  "items": [
+    {
+      "modelo": "ABC",
+      "marca": "DASS",
+      "cor": "1",
+      "fios": "43",
+      "pecas": ["LATERAL"],
+      "tamanhoDoQuadro": "10",
+      "numero": "1"
+    }
+  ],
+  "motivo": "Producao",
+  "observacao_pedido": "Opcional",
   "turno_pedido": "A"
 }
 ```
 
 Tambem aceita itens em `dados_pedido.items`.
 
-Resposta `201`:
+### `PATCH /v1/solicitacoes/:id/atendimento`
 
-```json
-{
-  "message": "success",
-  "solicitacao": {}
-}
-```
-
-### `PUT /solicitacoes-telas/:id/attend`
-
-Atende uma solicitacao com decisao de aceite ou reprovacao.
+Requer `ADMIN`, `OPERADOR_TELAS` ou `MOVIMENTADOR`. Aceita ou reprova.
 
 Body:
 
 ```json
 {
   "decision": "aceito",
-  "observacao_conferente": "texto obrigatorio para reprovado"
+  "observacao_conferente": "Obrigatoria para reprovado"
 }
 ```
 
-Tambem aceita `status` como alias de `decision`.
+### `PATCH /v1/solicitacoes/:id/inicio`
 
-Resposta `200`:
+Requer `ADMIN`, `OPERADOR_TELAS` ou `MOVIMENTADOR`. Move para `gravacao` ou `setor_em_manutencao`.
 
-```json
-{
-  "message": "success",
-  "solicitacao": {}
-}
-```
+### `PATCH /v1/solicitacoes/:id/conclusao`
 
-### `PUT /solicitacoes-telas/:id/start`
+Requer `ADMIN`, `OPERADOR_TELAS` ou `MOVIMENTADOR`. Move de `gravacao` para `concluido`.
 
-Inicia a etapa operacional seguinte da solicitacao.
+### `PATCH /v1/solicitacoes/:id/entrega`
 
-Body:
-
-```json
-{
-  "status": "gravacao"
-}
-```
-
-Tambem aceita `targetStatus`.
-
-Resposta `200`:
-
-```json
-{
-  "message": "success",
-  "solicitacao": {}
-}
-```
-
-### `PUT /solicitacoes-telas/:id/complete`
-
-Conclui uma solicitacao em andamento.
-
-Resposta `200`:
-
-```json
-{
-  "message": "success",
-  "solicitacao": {}
-}
-```
-
-### `PUT /solicitacoes-telas/:id/deliver`
-
-Registra entrega.
+Requer `ADMIN`, `OPERADOR_TELAS` ou `MOVIMENTADOR`. Move de `concluido` para `entregue`.
 
 Body:
 
@@ -265,20 +174,11 @@ Body:
 }
 ```
 
-`user_conferente` deve ser a matricula do usuario autenticado.
+`user_conferente` deve ser a matricula autenticada.
 
-Resposta `200`:
+### `PATCH /v1/solicitacoes/:id/devolucao`
 
-```json
-{
-  "message": "success",
-  "solicitacao": {}
-}
-```
-
-### `PUT /solicitacoes-telas/:id/return`
-
-Registra devolucao.
+Requer `ADMIN`, `OPERADOR_TELAS` ou `MOVIMENTADOR`. Move de `entregue` para `devolvido`.
 
 Body:
 
@@ -286,17 +186,17 @@ Body:
 {
   "user_recebimento": 3012345,
   "user_conferente": 3020495,
-  "observacao_conferente": "motivo da devolucao"
+  "observacao_conferente": "Motivo"
 }
 ```
 
-`user_conferente` deve ser a matricula do usuario autenticado.
+## Configuracao
 
-Resposta `200`:
+- `GET /v1/config/telas-sem-movimentacao`: consulta limite global.
+- `PATCH /v1/config/telas-sem-movimentacao`: requer `ADMIN`, atualiza `days`.
 
-```json
-{
-  "message": "success",
-  "solicitacao": {}
-}
-```
+## Auditoria
+
+### `GET /v1/audit-events`
+
+Requer `ADMIN`. Consulta historico por `entityType`, `entityId`, `action`, `actorMatricula`, `page`, `itemsPerPage`.

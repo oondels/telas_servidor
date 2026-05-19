@@ -12,6 +12,9 @@ Manter uma API REST com separacao clara entre regra de negocio, orquestracao de 
 - **Presentation HTTP** (`src/modules/*/presentation/http`): controllers que adaptam Request/Response para use cases.
 - **HTTP Composition** (`src/infrastructure/http`): app Express, middlewares, registro de rotas e injecao manual de dependencias.
 - **Shared** (`src/shared` e `src/modules/shared`): erros, auth-context, respostas HTTP, logs, parsers, utilitarios e constantes compartilhadas.
+- **RBAC** (`src/modules/users`): usuarios internos ativos e papel unico por matricula autenticada.
+- **Audit** (`src/modules/audit`): persistencia append-only de eventos de dominio.
+- **Config** (`src/modules/config`): configuracoes operacionais globais.
 
 ## Regras de Dependencia
 
@@ -21,6 +24,7 @@ Manter uma API REST com separacao clara entre regra de negocio, orquestracao de 
 - Repositories implementam contratos da aplicacao e podem depender de TypeORM.
 - Entidades ORM nao devem conter regra de negocio.
 - `src/infrastructure/http/routes/index.ts` pode compor controllers, use cases e repositories.
+- Rotas de negocio devem ficar abaixo de `/v1`.
 
 ## Modulo `telas`
 
@@ -61,11 +65,25 @@ Arquivos principais:
 - persistencia: `infrastructure/typeorm-solicitacoes.repository.ts`
 - HTTP: `presentation/http/solicitacoes.controller.ts`
 
+## Modulo `users`
+
+Responsavel por:
+
+- cadastro de usuarios por Admin;
+- ativacao e desativacao;
+- atribuicao de papel unico;
+- carregamento do usuario ativo a partir da matricula do JWT.
+
+## Auditoria e Configuracao
+
+- `telas_audit_events` armazena eventos append-only para telas, solicitacoes e usuarios.
+- `telas_configuracoes` armazena configuracao global de telas sem movimentacao.
+
 ## Padroes de Implementacao
 
 - Use `AppError` para erros esperados de dominio, permissao e validacao.
 - Use `sendSuccess` para respostas bem-sucedidas.
 - Use `asyncHandler` para rotas assincronas.
 - Obtenha usuario autenticado via `getAuthenticatedUser` ou `getAuthenticatedMatricula`.
-- Centralize listas de acesso em `src/modules/shared/domain/constants/access.ts`.
+- Preferir RBAC por `src/modules/users`; listas hardcoded de matriculas nao devem ser usadas em novas regras.
 - Preserve imports ESM com extensao `.js`.

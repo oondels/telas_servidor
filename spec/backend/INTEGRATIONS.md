@@ -1,98 +1,83 @@
 # Backend Integrations
 
-## PostgreSQL
+## PostgreSQL e TypeORM
 
-A aplicacao usa PostgreSQL via TypeORM. A conexao e configurada em `src/config/database.ts` com variaveis validadas em `src/config/env.ts`.
+A conexao e centralizada em `src/config/database.ts`; variaveis sao validadas em `src/config/env.ts`.
 
-Variaveis de banco:
-
-- `IP`: host do PostgreSQL.
-- `PORT`: porta do PostgreSQL, padrao `5432`.
-- `USERS`: usuario do banco.
-- `PASS`: senha do banco.
-- `DBASE`: nome do banco.
-
-## TypeORM
-
-Configuracao atual:
-
-- `synchronize: false`
-- `logging: false`
-- entities:
-  - `TelaOrmEntity`
-  - `SolicitacaoOrmEntity`
-- migrations:
-  - `src/infrastructure/database/migrations/*.ts`
-  - `dist/infrastructure/database/migrations/*.js`
-- tabela de migrations: `typeorm_migrations`
-
-Entidades principais:
+Entidades atuais:
 
 - `fabrica.controle_telas_prateleiras`
 - `fabrica.solicitacao_tela`
+- `fabrica.telas_usuarios`
+- `fabrica.telas_audit_events`
+- `fabrica.telas_configuracoes`
 
-## Migrations
+`synchronize` permanece `false`; mudancas de schema devem usar migrations.
 
-Scripts disponiveis:
+## Migration de Conclusao
 
-- `npm run migration:generate`
-- `npm run migration:run`
-- `npm run migration:revert`
+`1714060002000-AddRbacAuditAndConfig.ts` cria:
 
-Nao habilite `synchronize` em ambientes compartilhados. Alteracoes de schema devem ser feitas por migration.
+- enum `fabrica.telas_usuario_role`;
+- tabela de usuarios internos;
+- tabela de audit log;
+- tabela de configuracoes;
+- configuracao padrao de telas sem movimentacao;
+- indices de RBAC e auditoria.
 
-## Ambiente
+## Bootstrap Manual do Primeiro Admin
 
-Variaveis validadas por Zod:
+Depois de rodar migrations, inserir o primeiro Admin manualmente:
 
-- `NODE_ENV`: `development`, `test` ou `production`.
-- `API_PORT`: porta HTTP, padrao `3041`.
+```sql
+INSERT INTO fabrica.telas_usuarios (
+  matricula, nome, usuario, setor, unidade, role, active, created_at, updated_at
+)
+VALUES (
+  3020495,
+  'NOME DO ADMIN',
+  'USUARIO.ADMIN',
+  'AUTOMACAO',
+  'SEST',
+  'ADMIN',
+  true,
+  NOW(),
+  NOW()
+)
+ON CONFLICT (matricula) DO UPDATE
+SET role = 'ADMIN',
+    active = true,
+    updated_at = NOW();
+```
+
+## JWT
+
+O backend assume autenticacao externa:
+
+- le cookie `JWT_COOKIE_NAME`;
+- valida com `JWT_SECRET`;
+- injeta payload em `req.user`;
+- carrega usuario ativo interno por matricula;
+- bloqueia usuario inexistente/inativo com `403`.
+
+## Variaveis de Ambiente
+
+- `NODE_ENV`
+- `API_PORT`
 - `USERS`
 - `PASS`
 - `IP`
 - `PORT`
 - `DBASE`
 - `JWT_SECRET`
-- `JWT_COOKIE_NAME`: padrao `token`.
-- `CORS_ORIGIN`: padrao `*`.
+- `JWT_COOKIE_NAME`
+- `CORS_ORIGIN`
 
-O arquivo `.env` nao deve ser versionado.
+## Execucao
 
-## Autenticacao
-
-A API assume autenticacao externa. O backend:
-
-- le o JWT do cookie configurado por `JWT_COOKIE_NAME`;
-- valida a assinatura com `JWT_SECRET`;
-- injeta o payload em `req.user`;
-- rejeita token ausente com `TOKEN_NAO_FORNECIDO`;
-- rejeita token invalido com `TOKEN_INVALIDO`.
-
-Payload esperado inclui, quando disponivel:
-
-- `id`
-- `usuario`
-- `codbarras`
-- `rfid`
-- `matricula`
-- `setor`
-- `nivel`
-- `unidade`
-- `funcao`
-- `haveemail`
-- `nome`
-
-## CORS
-
-O app Express configura CORS em `src/infrastructure/http/app.ts` com credenciais habilitadas. Mudancas de origem, cookie ou credenciais devem ser documentadas aqui e avaliadas junto com o cliente consumidor.
-
-## Execucao Local
-
-Scripts principais:
-
-- `npm run dev`: executa com `tsx watch src/server.ts`.
-- `npm run build`: compila TypeScript para `dist`.
-- `npm start`: executa `node dist/server.js`.
-- `npm run check`: roda `tsc --noEmit`.
-
-Antes de executar a API, garanta que o `.env` local tenha as variaveis obrigatorias e que o PostgreSQL esteja acessivel.
+- `npm run dev`
+- `npm run build`
+- `npm start`
+- `npm run check`
+- `npm run migration:run`
+- `npm run migration:revert`
