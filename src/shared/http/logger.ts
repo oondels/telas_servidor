@@ -1,16 +1,14 @@
-export const logEvent = (level: "info" | "error", message: string, context: Record<string, unknown> = {}) => {
-  const payload = {
-    level,
-    ts: new Date().toISOString(),
-    message,
-    ...context,
-  };
+import pino from "pino";
+import { env } from "../../config/env.js";
 
-  const line = JSON.stringify(payload);
-  if (level === "error") {
-    console.error(line);
-    return;
-  }
-
-  console.log(line);
-};
+export const logger = pino({
+  level: env.NODE_ENV === "production" ? "info" : "debug",
+  ...(env.NODE_ENV !== "production" && {
+    transport: {
+      target: "pino-pretty",
+      options: {
+        colorize: true,
+      },
+    },
+  }),
+});
