@@ -216,6 +216,9 @@ Essa funcionalidade deve apoiar decisões como:
 
 O número de dias considerado para classificar uma tela como “sem movimentação” deve ser configurável ou, no mínimo, parametrizável na consulta.
 
+### Notificação de Telas Sem Movimentação
+O sistema deve permitir a configuração de notificações para telas que estão sem movimentação há um determinado número de dias.
+
 ---
 
 ## Requisitos Arquiteturais

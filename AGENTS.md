@@ -135,7 +135,8 @@ O projeto e backend-only neste repositorio e usa TypeScript, Express, TypeORM, P
   - `spec/DESIGN_SPEC.md`
   - `spec/backend/{README,ARCHITECTURE,ROUTES,BUSINESS_RULES,INTEGRATIONS}.md`
 
-## 7) Skills Locais Codex
+## 7) Skills Locais
+- Utilize a skill de commit /home/oendel/code/dass/telas_servidor/.codex/skills/commit-changes/SKILL.md para realizar commit de alterações
 
 - Nenhuma skill local foi detectada neste repositorio no momento.
 
