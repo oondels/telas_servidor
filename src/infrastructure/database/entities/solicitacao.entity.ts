@@ -23,6 +23,9 @@ export class SolicitacaoOrmEntity {
   @Column({ type: "timestamptz", nullable: true })
   data_pedido!: Date | null;
 
+  @Column({ type: "enum", enumName: "tipo_solicitacao", enum: ["NOVA", "EXISTENTE", "REPOSICAO"], default: "NOVA" })
+  tipo!: string;
+
   @Column({ type: "enum", enumName: "status_solicitacao", enum: [
     "pedido",
     "aceito",

@@ -116,11 +116,13 @@ Detalha uma solicitacao.
 ### `POST /v1/solicitacoes`
 
 Cria solicitacao para a matricula autenticada. Qualquer usuario ativo pode criar.
+Aceita três `tipo` de solicitações: `NOVA` (padrão), `EXISTENTE`, ou `REPOSICAO`.
 
-Body:
+Body para tela `NOVA`:
 
 ```json
 {
+  "tipo": "NOVA",
   "items": [
     {
       "modelo": "ABC",
@@ -135,6 +137,37 @@ Body:
   "motivo": "Producao",
   "observacao_pedido": "Opcional",
   "turno_pedido": "A"
+}
+```
+
+Body para tela `EXISTENTE` (pula a gravação e vai para separação):
+
+```json
+{
+  "tipo": "EXISTENTE",
+  "items": [
+    { "id": "123" }
+  ]
+}
+```
+
+Body para `REPOSICAO`:
+
+```json
+{
+  "tipo": "REPOSICAO",
+  "items": [
+    {
+      "id": "123",
+      "modelo": "ABC",
+      "marca": "DASS",
+      "cor": "1",
+      "fios": "43",
+      "pecas": ["LATERAL"],
+      "tamanhoDoQuadro": "10",
+      "numero": "1"
+    }
+  ]
 }
 ```
 

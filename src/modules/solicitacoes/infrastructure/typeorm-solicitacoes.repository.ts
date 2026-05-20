@@ -31,6 +31,7 @@ const TABLE_NAME = "fabrica.solicitacao_tela";
 const mapSolicitacao = (entity: SolicitacaoOrmEntity): Solicitacao => ({
   id: entity.id,
   solicitante: Number(entity.solicitante),
+  tipo: entity.tipo ?? "NOVA",
   dados_pedido: entity.dados_pedido,
   motivo: entity.motivo,
   observacao_pedido: entity.observacao_pedido,
@@ -169,6 +170,7 @@ export class TypeOrmSolicitacoesRepository implements ISolicitacoesRepository {
 
     const entity = repository.create({
       solicitante: String(input.solicitante),
+      tipo: input.tipo ?? "NOVA",
       dados_pedido: { items: normalizedItems },
       motivo: input.motivo ?? null,
       observacao_pedido: input.observacaoPedido ?? null,
@@ -270,6 +272,10 @@ export class TypeOrmSolicitacoesRepository implements ISolicitacoesRepository {
         throw new AppError(404, "SOLICITACAO_NAO_ENCONTRADA", "Solicitação não encontrada");
       }
 
+      if (current.tipo === "EXISTENTE") {
+        throw new AppError(400, "OPERACAO_INVALIDA", "Telas existentes não passam por gravação, devem ir direto para conclusão (separação).");
+      }
+
       const currentStatus = normalizeCurrentStatus(current.status);
       const canStartFromAceito = currentStatus === SOLICITACAO_STATUS.ACEITO;
       const canResumeFromManutencao = currentStatus === SOLICITACAO_STATUS.SETOR_EM_MANUTENCAO
@@ -322,8 +328,16 @@ export class TypeOrmSolicitacoesRepository implements ISolicitacoesRepository {
       }
 
       const currentStatus = normalizeCurrentStatus(current.status);
-      if (currentStatus !== SOLICITACAO_STATUS.GRAVACAO) {
-        throw createTransitionError(currentStatus, SOLICITACAO_STATUS.GRAVACAO, SOLICITACAO_STATUS.CONCLUIDO);
+      const isExistente = current.tipo === "EXISTENTE";
+
+      if (isExistente) {
+        if (currentStatus !== SOLICITACAO_STATUS.ACEITO) {
+          throw createTransitionError(currentStatus, SOLICITACAO_STATUS.ACEITO, SOLICITACAO_STATUS.CONCLUIDO);
+        }
+      } else {
+        if (currentStatus !== SOLICITACAO_STATUS.GRAVACAO) {
+          throw createTransitionError(currentStatus, SOLICITACAO_STATUS.GRAVACAO, SOLICITACAO_STATUS.CONCLUIDO);
+        }
       }
 
       const before = mapSolicitacao(current);

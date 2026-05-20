@@ -41,9 +41,12 @@ Status permitidos:
 
 ## Solicitacoes
 
+Existem 3 tipos de solicitação:
+- `NOVA`: Pedido de gravação de telas novas. Exige payload completo (modelo, marca, cor, fios, peças, etc.).
+- `EXISTENTE`: Pedido de separação de telas que já existem fisicamente. Exige apenas o `id` da tela no payload. Pula a etapa de gravação.
+- `REPOSICAO`: Pedido de substituição de tela. Exige o `id` da tela anterior e o payload completo para gravar a nova.
+
 - Qualquer usuario ativo pode criar solicitacao para sua propria matricula autenticada.
-- Itens podem vir em `items` ou `dados_pedido.items`.
-- Cada item precisa de modelo, marca, cor, fios, tamanho do quadro/numero e pecas.
 - Atender, iniciar, concluir, entregar e devolver exigem `ADMIN`, `OPERADOR_TELAS` ou `MOVIMENTADOR`.
 - Reprovacao exige observacao.
 - Entrega e devolucao exigem `user_recebimento` e `user_conferente`.
@@ -53,7 +56,8 @@ Status permitidos:
 Transicoes:
 
 - `pedido` -> `aceito`, `reprovado`
-- `aceito` -> `gravacao`, `setor_em_manutencao`
+- `aceito` -> `gravacao`, `setor_em_manutencao` (NOVA e REPOSICAO)
+- `aceito` -> `concluido` (Apenas EXISTENTE, pois não grava fisicamente, apenas separa)
 - `setor_em_manutencao` -> `gravacao`, `reprovado`
 - `gravacao` -> `concluido`
 - `concluido` -> `entregue`

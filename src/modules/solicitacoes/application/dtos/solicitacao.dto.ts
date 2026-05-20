@@ -20,6 +20,7 @@ export interface SolicitacaoItemInput {
 
 export interface CreateSolicitacaoInput {
   solicitante: number;
+  tipo?: string;
   items: SolicitationItemRaw[];
   motivo?: string | null;
   observacaoPedido?: string | null;

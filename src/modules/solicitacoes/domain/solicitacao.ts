@@ -1,6 +1,7 @@
 export interface Solicitacao {
   id: string;
   solicitante: number;
+  tipo: string;
   dados_pedido: Record<string, unknown>;
   motivo: string | null;
   observacao_pedido: string | null;
