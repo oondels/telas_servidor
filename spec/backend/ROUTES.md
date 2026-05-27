@@ -247,6 +247,46 @@ Body:
 }
 ```
 
+## Endereços e Endereçamento em Lote
+
+### `GET /v1/enderecos`
+Requer `ADMIN`, `OPERADOR_TELAS` ou `MOVIMENTADOR`. Lista todos os endereços de telas cadastrados com estatísticas de ocupação.
+
+### `POST /v1/enderecos`
+Requer `ADMIN` ou `OPERADOR_TELAS`. Cadastra um novo endereço físico de prateleira (Rua - Bloco - Nível) com uma quantidade limite de vagas.
+Body:
+```json
+{
+  "address": "01-01-01",
+  "vagas": 23
+}
+```
+
+### `GET /v1/enderecos/:barcode`
+Requer `ADMIN`, `OPERADOR_TELAS` ou `MOVIMENTADOR`. Consulta detalhes de um endereço específico pelo seu código de barras.
+
+### `PATCH /v1/enderecos/:id/vagas`
+Requer `ADMIN` ou `OPERADOR_TELAS`. Atualiza a capacidade de vagas de um endereço.
+Body:
+```json
+{
+  "vagas": 30
+}
+```
+
+### `DELETE /v1/enderecos/:id`
+Requer `ADMIN`. Remove um endereço se não houver nenhuma tela associada a ele.
+
+### `PATCH /v1/telas/batch-endereco`
+Requer `ADMIN`, `OPERADOR_TELAS` ou `MOVIMENTADOR`. Realiza o endereçamento em lote de várias telas de uma vez para um endereço específico, validando a capacidade disponível de vagas.
+Body:
+```json
+{
+  "endereco": "01-01-01",
+  "telas": ["TL-ABC-1", "TL-ABC-2"]
+}
+```
+
 ## Auditoria
 
 ### `GET /v1/audit-events`

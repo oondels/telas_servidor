@@ -17,7 +17,11 @@ import { EditTelaUseCase } from "../../../modules/telas/application/use-cases/ed
 import { SearchTelasUseCase } from "../../../modules/telas/application/use-cases/search-telas.use-case.js";
 import { UpdatePosicaoTelasUseCase } from "../../../modules/telas/application/use-cases/update-posicao-telas.use-case.js";
 import { UpdateStatusTelasUseCase } from "../../../modules/telas/application/use-cases/update-status-telas.use-case.js";
+import { CreateTelaEnderecoUseCase } from "../../../modules/telas/application/use-cases/create-tela-endereco.use-case.js";
+import { ListTelasEnderecosUseCase } from "../../../modules/telas/application/use-cases/list-telas-enderecos.use-case.js";
+import { BatchEnderecarTelasUseCase } from "../../../modules/telas/application/use-cases/batch-enderecar-telas.use-case.js";
 import { TypeOrmTelasRepository } from "../../../modules/telas/infrastructure/typeorm-telas.repository.js";
+import { TypeOrmTelasEnderecosRepository } from "../../../modules/telas/infrastructure/typeorm-telas-enderecos.repository.js";
 import { normalizeUserRole, USER_ROLES } from "../../../modules/users/domain/user-role.js";
 import { TypeOrmUsersRepository } from "../../../modules/users/infrastructure/typeorm-users.repository.js";
 import { getActiveAppUser, getAuthenticatedMatricula, getAuthenticatedUser } from "../../../shared/auth/auth-context.js";
@@ -48,12 +52,16 @@ export const registerRoutes = (app: Express) => {
   const usersRepository = new TypeOrmUsersRepository(AppDataSource);
   const auditRepository = new TypeOrmAuditEventsRepository(AppDataSource);
   const configRepository = new TypeOrmAppConfigRepository(AppDataSource);
+  const telasEnderecosRepository = new TypeOrmTelasEnderecosRepository(AppDataSource);
 
   const searchTelasUseCase = new SearchTelasUseCase(telasRepository);
   const createTelaUseCase = new CreateTelaUseCase(telasRepository);
   const updatePosicaoTelasUseCase = new UpdatePosicaoTelasUseCase(telasRepository);
   const updateStatusTelasUseCase = new UpdateStatusTelasUseCase(telasRepository);
   const editTelaUseCase = new EditTelaUseCase(telasRepository);
+  const createTelaEnderecoUseCase = new CreateTelaEnderecoUseCase(telasEnderecosRepository);
+  const listTelasEnderecosUseCase = new ListTelasEnderecosUseCase(telasEnderecosRepository);
+  const batchEnderecarTelasUseCase = new BatchEnderecarTelasUseCase(telasEnderecosRepository, telasRepository);
 
   const searchSolicitacoesUseCase = new SearchSolicitacoesUseCase(solicitacoesRepository);
   const getSolicitacaoByIdUseCase = new GetSolicitacaoByIdUseCase(solicitacoesRepository);
@@ -230,6 +238,75 @@ export const registerRoutes = (app: Express) => {
 
       const matches = await telasRepository.findStrictMatch({ marca, modelo, numero, pecas, fios });
       return sendSuccess(res, 200, { matches, total: matches.length });
+    }),
+  );
+
+  v1.get(
+    "/enderecos",
+    requireRoles(USER_ROLES.ADMIN, USER_ROLES.OPERADOR_TELAS, USER_ROLES.MOVIMENTADOR),
+    asyncHandler(async (req, res) => {
+      const result = await listTelasEnderecosUseCase.execute();
+      return sendSuccess(res, 200, { message: "success", addresses: result });
+    }),
+  );
+
+  v1.post(
+    "/enderecos",
+    requireRoles(USER_ROLES.ADMIN, USER_ROLES.OPERADOR_TELAS),
+    asyncHandler(async (req, res) => {
+      const result = await createTelaEnderecoUseCase.execute(req.body ?? {}, getActorUsuario(req));
+      return sendSuccess(res, 201, { message: "success", address: result });
+    }),
+  );
+
+  v1.get(
+    "/enderecos/:barcode",
+    requireRoles(USER_ROLES.ADMIN, USER_ROLES.OPERADOR_TELAS, USER_ROLES.MOVIMENTADOR),
+    asyncHandler(async (req, res) => {
+      const barcode = String(req.params.barcode).trim().toUpperCase();
+      const address = await telasEnderecosRepository.findByBarcode(barcode);
+      if (!address) {
+        throw new AppError(404, "ENDERECO_NAO_ENCONTRADO", "Endereço não encontrado.");
+      }
+      const ocupadas = await telasEnderecosRepository.countOccupiedVagas(address.address);
+      return sendSuccess(res, 200, {
+        message: "success",
+        address: { ...address, ocupadas },
+      });
+    }),
+  );
+
+  v1.patch(
+    "/enderecos/:id/vagas",
+    requireRoles(USER_ROLES.ADMIN, USER_ROLES.OPERADOR_TELAS),
+    asyncHandler(async (req, res) => {
+      const id = Number(req.params.id);
+      const vagas = Number(req.body?.vagas);
+      const result = await telasEnderecosRepository.updateVagas(id, vagas, getActorUsuario(req));
+      return sendSuccess(res, 200, { message: "success", address: result });
+    }),
+  );
+
+  v1.delete(
+    "/enderecos/:id",
+    requireRoles(USER_ROLES.ADMIN),
+    asyncHandler(async (req, res) => {
+      const id = Number(req.params.id);
+      await telasEnderecosRepository.delete(id);
+      return sendSuccess(res, 200, { message: "success" });
+    }),
+  );
+
+  v1.patch(
+    "/telas/batch-endereco",
+    requireRoles(USER_ROLES.ADMIN, USER_ROLES.OPERADOR_TELAS, USER_ROLES.MOVIMENTADOR),
+    asyncHandler(async (req, res) => {
+      const result = await batchEnderecarTelasUseCase.execute({
+        barcodeEndereco: req.body?.endereco,
+        codigosTelas: req.body?.telas,
+        usuario: getActorUsuario(req),
+      });
+      return sendSuccess(res, 200, { message: "success", ...result });
     }),
   );
 

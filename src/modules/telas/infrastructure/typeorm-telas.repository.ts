@@ -517,4 +517,10 @@ export class TypeOrmTelasRepository implements ITelasRepository {
 
     throw new AppError(500, "CODIGO_BARRAS_NAO_GERADO", "Nao foi possível gerar código de barras único");
   }
+
+  async findByBarcode(barcode: string): Promise<Tela | null> {
+    const repository = this.dataSource.getRepository(TelaOrmEntity);
+    const entity = await repository.findOne({ where: { codbarrastela: String(barcode || "").trim().toUpperCase() } });
+    return entity ? mapTelaEntity(entity) : null;
+  }
 }

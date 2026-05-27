@@ -6,6 +6,7 @@ import { TelaOrmEntity } from "../infrastructure/database/entities/tela.entity.j
 import { AppUserOrmEntity } from "../infrastructure/database/entities/app-user.entity.js";
 import { AuditEventOrmEntity } from "../infrastructure/database/entities/audit-event.entity.js";
 import { AppConfigOrmEntity } from "../infrastructure/database/entities/app-config.entity.js";
+import { TelaEnderecoOrmEntity } from "../infrastructure/database/entities/tela-endereco.entity.js";
 
 export const AppDataSource = new DataSource({
   type: "postgres",
@@ -14,7 +15,14 @@ export const AppDataSource = new DataSource({
   username: env.USERS,
   password: env.PASS,
   database: env.DBASE,
-  entities: [TelaOrmEntity, SolicitacaoOrmEntity, AppUserOrmEntity, AuditEventOrmEntity, AppConfigOrmEntity],
+  entities: [
+    TelaOrmEntity,
+    SolicitacaoOrmEntity,
+    AppUserOrmEntity,
+    AuditEventOrmEntity,
+    AppConfigOrmEntity,
+    TelaEnderecoOrmEntity,
+  ],
   migrations: import.meta.url.endsWith(".js")
     ? ["dist/infrastructure/database/migrations/*.js"]
     : ["src/infrastructure/database/migrations/*.ts"],
