@@ -15,7 +15,9 @@ export const AppDataSource = new DataSource({
   password: env.PASS,
   database: env.DBASE,
   entities: [TelaOrmEntity, SolicitacaoOrmEntity, AppUserOrmEntity, AuditEventOrmEntity, AppConfigOrmEntity],
-  migrations: ["src/infrastructure/database/migrations/*.ts", "dist/infrastructure/database/migrations/*.js"],
+  migrations: import.meta.url.endsWith(".js")
+    ? ["dist/infrastructure/database/migrations/*.js"]
+    : ["src/infrastructure/database/migrations/*.ts"],
   migrationsTableName: "typeorm_migrations",
   synchronize: false,
   logging: false,
