@@ -188,6 +188,19 @@ export const registerRoutes = (app: Express) => {
   );
 
   v1.patch(
+    "/telas/batch-endereco",
+    requireRoles(USER_ROLES.ADMIN, USER_ROLES.OPERADOR_TELAS, USER_ROLES.MOVIMENTADOR),
+    asyncHandler(async (req, res) => {
+      const result = await batchEnderecarTelasUseCase.execute({
+        barcodeEndereco: req.body?.endereco,
+        codigosTelas: req.body?.telas,
+        usuario: getActorUsuario(req),
+      });
+      return sendSuccess(res, 200, { message: "success", ...result });
+    }),
+  );
+
+  v1.patch(
     "/telas/:codigo",
     requireRoles(USER_ROLES.ADMIN, USER_ROLES.OPERADOR_TELAS),
     asyncHandler(async (req, res) => {
@@ -297,18 +310,7 @@ export const registerRoutes = (app: Express) => {
     }),
   );
 
-  v1.patch(
-    "/telas/batch-endereco",
-    requireRoles(USER_ROLES.ADMIN, USER_ROLES.OPERADOR_TELAS, USER_ROLES.MOVIMENTADOR),
-    asyncHandler(async (req, res) => {
-      const result = await batchEnderecarTelasUseCase.execute({
-        barcodeEndereco: req.body?.endereco,
-        codigosTelas: req.body?.telas,
-        usuario: getActorUsuario(req),
-      });
-      return sendSuccess(res, 200, { message: "success", ...result });
-    }),
-  );
+
 
   v1.post(
     "/telas/:codigo/reposicoes",
