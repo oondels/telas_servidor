@@ -57,7 +57,7 @@ export const registerRoutes = (app: Express) => {
 
   const searchSolicitacoesUseCase = new SearchSolicitacoesUseCase(solicitacoesRepository);
   const getSolicitacaoByIdUseCase = new GetSolicitacaoByIdUseCase(solicitacoesRepository);
-  const createSolicitacaoUseCase = new CreateSolicitacaoUseCase(solicitacoesRepository);
+  const createSolicitacaoUseCase = new CreateSolicitacaoUseCase(solicitacoesRepository, telasRepository, configRepository);
   const attendSolicitacaoUseCase = new AttendSolicitacaoUseCase(solicitacoesRepository);
   const startSolicitacaoUseCase = new StartSolicitacaoUseCase(solicitacoesRepository);
   const completeSolicitacaoUseCase = new CompleteSolicitacaoUseCase(solicitacoesRepository);
@@ -215,6 +215,25 @@ export const registerRoutes = (app: Express) => {
   );
 
   v1.post(
+    "/telas/match",
+    requireRoles(USER_ROLES.ADMIN),
+    asyncHandler(async (req, res) => {
+      const marca = String(req.body?.marca ?? "").trim().toUpperCase();
+      const modelo = String(req.body?.modelo ?? "").trim().toUpperCase();
+      const numero = String(req.body?.numero ?? "").trim().toUpperCase();
+      const pecas = Array.isArray(req.body?.pecas) ? req.body.pecas : [];
+      const fios = req.body?.fios !== undefined ? String(req.body.fios).trim().toUpperCase() : undefined;
+
+      if (!marca || !modelo || !numero) {
+        throw new AppError(400, "DADOS_OBRIGATORIOS", "Informe marca, modelo e numero para a busca.");
+      }
+
+      const matches = await telasRepository.findStrictMatch({ marca, modelo, numero, pecas, fios });
+      return sendSuccess(res, 200, { matches, total: matches.length });
+    }),
+  );
+
+  v1.post(
     "/telas/:codigo/reposicoes",
     requireRoles(USER_ROLES.ADMIN, USER_ROLES.OPERADOR_TELAS),
     asyncHandler(async (req, res) => {
@@ -258,6 +277,7 @@ export const registerRoutes = (app: Express) => {
     const solicitacao = await createSolicitacaoUseCase.execute({
       solicitante: getAuthenticatedMatricula(req),
       items,
+      tipo: String(data.tipo ?? "").trim().toUpperCase() || undefined,
       motivo: String(data.motivo ?? "").trim() || null,
       observacaoPedido: String(data.observacao_pedido ?? data.observacaoPedido ?? "").trim() || null,
       turnoPedido: String(data.turno_pedido ?? data.turnoPedido ?? "").trim().toUpperCase() || null,
@@ -341,6 +361,19 @@ export const registerRoutes = (app: Express) => {
     requireRoles(USER_ROLES.ADMIN),
     asyncHandler(async (req, res) => {
       const config = await configRepository.updateInactiveTelasConfig(Number(req.body?.days), getAuthenticatedMatricula(req));
+      return sendSuccess(res, 200, { message: "success", config });
+    }),
+  );
+
+  v1.get("/config/auto-cadastro-telas", asyncHandler(async (_req, res) => {
+    return sendSuccess(res, 200, { config: await configRepository.getAutoCadastroConfig() });
+  }));
+
+  v1.patch(
+    "/config/auto-cadastro-telas",
+    requireRoles(USER_ROLES.ADMIN),
+    asyncHandler(async (req, res) => {
+      const config = await configRepository.updateAutoCadastroConfig(Boolean(req.body?.enabled), getAuthenticatedMatricula(req));
       return sendSuccess(res, 200, { message: "success", config });
     }),
   );

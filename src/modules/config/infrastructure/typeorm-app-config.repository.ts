@@ -4,6 +4,7 @@ import { AppError } from "../../../shared/domain/errors/app-error.js";
 import { toBahiaSqlDateTime } from "../../../shared/utils/date.js";
 
 const INACTIVE_TELAS_KEY = "telas_sem_movimentacao";
+const AUTO_CADASTRO_KEY = "auto_cadastro_telas";
 const DEFAULT_DAYS = 30;
 
 export class TypeOrmAppConfigRepository {
@@ -40,4 +41,32 @@ export class TypeOrmAppConfigRepository {
     await repository.save(next);
     return this.getInactiveTelasConfig();
   }
+
+  async getAutoCadastroConfig() {
+    const entity = await this.dataSource.getRepository(AppConfigOrmEntity).findOne({
+      where: { key: AUTO_CADASTRO_KEY },
+    });
+
+    return {
+      key: AUTO_CADASTRO_KEY,
+      enabled: Boolean(entity?.value?.enabled ?? false),
+      updatedAt: entity?.updated_at ?? null,
+      updatedBy: entity?.updated_by !== null && entity?.updated_by !== undefined ? Number(entity.updated_by) : null,
+    };
+  }
+
+  async updateAutoCadastroConfig(enabled: boolean, updatedBy: number) {
+    const repository = this.dataSource.getRepository(AppConfigOrmEntity);
+    const now = new Date(toBahiaSqlDateTime());
+    const entity = await repository.findOne({ where: { key: AUTO_CADASTRO_KEY } });
+
+    const next = entity ?? repository.create({ key: AUTO_CADASTRO_KEY });
+    next.value = { enabled };
+    next.updated_at = now;
+    next.updated_by = String(updatedBy);
+
+    await repository.save(next);
+    return this.getAutoCadastroConfig();
+  }
 }
+

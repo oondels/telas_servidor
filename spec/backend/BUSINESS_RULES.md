@@ -41,10 +41,24 @@ Status permitidos:
 
 ## Solicitacoes
 
-Existem 3 tipos de solicitação:
-- `NOVA`: Pedido de gravação de telas novas. Exige payload completo (modelo, marca, cor, fios, peças, etc.).
-- `EXISTENTE`: Pedido de separação de telas que já existem fisicamente. Exige apenas o `id` da tela no payload. Pula a etapa de gravação.
-- `REPOSICAO`: Pedido de substituição de tela. Exige o `id` da tela anterior e o payload completo para gravar a nova.
+## Solicitacoes
+
+Existem 2 tipos de solicitação:
+- `EXISTENTE`: Pedido de separação de telas que já existem fisicamente na fábrica. O sistema tenta encontrar uma tela compatível. Pula a etapa de gravação a menos que seja feito um auto-cadastro (ver regras abaixo).
+- `REPOSICAO`: Pedido de substituição de tela fisicamente estragada ou perdida. O sistema tenta encontrar uma tela compatível e grava uma nova no lugar.
+
+### Amarração de Telas (findStrictMatch)
+As solicitações NÃO exigem mais o `id` direto da tela. A vinculação é feita por **busca estrita de características**:
+- A API busca uma tela onde `marca`, `modelo`, e `numero` batem de forma exata.
+- A lista de `pecas` também deve ser exatamente igual (independente da ordem).
+- Se `fios` for enviado na busca, também deve bater de forma exata.
+
+**Resolução da Busca:**
+1. **1 Match Exato:** A tela é vinculada à solicitação automaticamente.
+2. **Mais de 1 Match:** Retorna erro HTTP 409 (`MULTIPLAS_TELAS_ENCONTRADAS`) com a lista de telas. O usuário deve escolher qual ID exato deseja no frontend.
+3. **0 Matches (Auto-cadastro):** O sistema checa a configuração `auto_cadastro_telas`.
+   - Se `false`: Retorna HTTP 400 avisando que a tela não foi encontrada.
+   - Se `true`: Retorna HTTP 400 (`DADOS_INCOMPLETOS_AUTO_CADASTRO`) se faltar `fios`, `cor` ou `tamanhoDoQuadro` (para reposição). Se todos os dados estiverem presentes, a tela é **cadastrada automaticamente** no sistema (status PRODUCAO) e vinculada à solicitação.
 
 - Qualquer usuario ativo pode criar solicitacao para sua propria matricula autenticada.
 - Atender, iniciar, concluir, entregar e devolver exigem `ADMIN`, `OPERADOR_TELAS` ou `MOVIMENTADOR`.
@@ -56,8 +70,8 @@ Existem 3 tipos de solicitação:
 Transicoes:
 
 - `pedido` -> `aceito`, `reprovado`
-- `aceito` -> `gravacao`, `setor_em_manutencao` (NOVA e REPOSICAO)
-- `aceito` -> `concluido` (Apenas EXISTENTE, pois não grava fisicamente, apenas separa)
+- `aceito` -> `gravacao`, `setor_em_manutencao` (REPOSICAO ou auto-cadastro)
+- `aceito` -> `concluido` (EXISTENTE quando a tela já existe fisicamente)
 - `setor_em_manutencao` -> `gravacao`, `reprovado`
 - `gravacao` -> `concluido`
 - `concluido` -> `entregue`
@@ -86,9 +100,14 @@ Eventos principais:
 - `SOLICITACAO_ENTREGUE`
 - `SOLICITACAO_DEVOLVIDA`
 
-## Telas Sem Movimentacao
+## Configuracoes do Sistema
 
+### Telas Sem Movimentacao
 - Configuracao global fica em `fabrica.telas_configuracoes` com chave `telas_sem_movimentacao`.
 - Valor padrao: `{"days": 30}`.
 - Consulta pode receber `days` para sobrescrever o limite apenas naquela chamada.
-- A funcionalidade atual e consulta/configuracao; nao ha scheduler nem envio externo.
+
+### Auto-cadastro em Solicitações
+- Configuracao global em `fabrica.telas_configuracoes` com chave `auto_cadastro_telas`.
+- Valor padrao: `{"enabled": true}`.
+- Determina se o sistema permite ou não cadastrar uma tela "on the fly" quando a busca por características não encontra resultados durante a criação de uma solicitação.

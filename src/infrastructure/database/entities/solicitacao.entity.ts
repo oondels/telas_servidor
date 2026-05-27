@@ -1,8 +1,8 @@
-import { Column, Entity, PrimaryColumn } from "typeorm";
+import { Column, Entity, PrimaryGeneratedColumn } from "typeorm";
 
 @Entity({ schema: "fabrica", name: "solicitacao_tela" })
 export class SolicitacaoOrmEntity {
-  @PrimaryColumn({ type: "uuid" })
+  @PrimaryGeneratedColumn("uuid")
   id!: string;
 
   @Column({ type: "bigint" })

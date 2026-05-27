@@ -6,7 +6,13 @@ describe("CreateSolicitacaoUseCase", () => {
     const repository = {
       create: vi.fn().mockResolvedValue({ id: "sol-1" }),
     };
-    const useCase = new CreateSolicitacaoUseCase(repository as never);
+    const telasRepo = {
+      findStrictMatch: vi.fn().mockResolvedValue([{ id: "tela-1" }]),
+    };
+    const configRepo = {
+      getAutoCadastroConfig: vi.fn().mockResolvedValue({ enabled: false }),
+    };
+    const useCase = new CreateSolicitacaoUseCase(repository as never, telasRepo as never, configRepo as never);
 
     await expect(useCase.execute({
       solicitante: 9999999,
@@ -26,7 +32,9 @@ describe("CreateSolicitacaoUseCase", () => {
 
   it("rejects empty or incomplete item list", async () => {
     const repository = { create: vi.fn() };
-    const useCase = new CreateSolicitacaoUseCase(repository as never);
+    const telasRepo = { findStrictMatch: vi.fn() };
+    const configRepo = { getAutoCadastroConfig: vi.fn() };
+    const useCase = new CreateSolicitacaoUseCase(repository as never, telasRepo as never, configRepo as never);
 
     await expect(useCase.execute({
       solicitante: 3020495,
@@ -34,3 +42,4 @@ describe("CreateSolicitacaoUseCase", () => {
     })).rejects.toMatchObject({ code: "DADOS_PEDIDO_INVALIDOS" });
   });
 });
+

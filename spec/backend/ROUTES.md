@@ -116,22 +116,23 @@ Detalha uma solicitacao.
 ### `POST /v1/solicitacoes`
 
 Cria solicitacao para a matricula autenticada. Qualquer usuario ativo pode criar.
-Aceita três `tipo` de solicitações: `NOVA` (padrão), `EXISTENTE`, ou `REPOSICAO`.
+Aceita dois `tipo` de solicitações: `EXISTENTE` (padrão) ou `REPOSICAO`.
 
-Body para tela `NOVA`:
+A resolução da tela solicitada é feita por busca estrita de características (marca, modelo, número, peças, fios).
+
+Body para tela `EXISTENTE` (pula a gravação e vai para separação):
 
 ```json
 {
-  "tipo": "NOVA",
+  "tipo": "EXISTENTE",
   "items": [
     {
-      "modelo": "ABC",
       "marca": "DASS",
-      "cor": "1",
-      "fios": "43",
+      "modelo": "ABC",
+      "numero": "1",
       "pecas": ["LATERAL"],
-      "tamanhoDoQuadro": "10",
-      "numero": "1"
+      "fios": "43",
+      "cor": "1"
     }
   ],
   "motivo": "Producao",
@@ -140,16 +141,7 @@ Body para tela `NOVA`:
 }
 ```
 
-Body para tela `EXISTENTE` (pula a gravação e vai para separação):
-
-```json
-{
-  "tipo": "EXISTENTE",
-  "items": [
-    { "id": "123" }
-  ]
-}
-```
+*Nota: Os campos `fios` e `cor` só são obrigatórios se o auto-cadastro estiver ativado e a tela não for encontrada.*
 
 Body para `REPOSICAO`:
 
@@ -158,18 +150,25 @@ Body para `REPOSICAO`:
   "tipo": "REPOSICAO",
   "items": [
     {
-      "id": "123",
-      "modelo": "ABC",
       "marca": "DASS",
-      "cor": "1",
-      "fios": "43",
+      "modelo": "ABC",
+      "numero": "1",
       "pecas": ["LATERAL"],
-      "tamanhoDoQuadro": "10",
-      "numero": "1"
+      "fios": "43",
+      "cor": "1",
+      "tamanhoDoQuadro": "10"
     }
   ]
 }
 ```
+
+*Nota: `tamanhoDoQuadro` é exigido apenas se o auto-cadastro estiver ativado e a tela não for encontrada (precisar ser recriada).*
+
+**Respostas Possíveis**:
+- `201 Created`: Sucesso, solicitação criada.
+- `400 Bad Request`: Payload inválido, ou `DADOS_INCOMPLETOS_AUTO_CADASTRO` se auto-cadastro ativado e faltar campos, ou config desativada e tela não encontrada.
+- `404 Not Found`: `TELA_NAO_ENCONTRADA` (se auto-cadastro estiver inativo).
+- `409 Conflict`: `MULTIPLAS_TELAS_ENCONTRADAS` - Mais de uma tela compatível. Retorna lista em `details.matches` para resolução.
 
 Tambem aceita itens em `dados_pedido.items`.
 
@@ -225,8 +224,28 @@ Body:
 
 ## Configuracao
 
-- `GET /v1/config/telas-sem-movimentacao`: consulta limite global.
+- `GET /v1/config/telas-sem-movimentacao`: consulta limite global de dias.
 - `PATCH /v1/config/telas-sem-movimentacao`: requer `ADMIN`, atualiza `days`.
+- `GET /v1/config/auto-cadastro-telas`: consulta status do auto-cadastro (booleano).
+- `PATCH /v1/config/auto-cadastro-telas`: requer `ADMIN`, atualiza `enabled` (booleano).
+
+## Teste e Debug
+
+### `POST /v1/telas/match`
+
+Requer `ADMIN`. Testa a lógica de busca estrita de telas (`findStrictMatch`) retornando as correspondências sem criar nenhuma solicitação.
+
+Body:
+
+```json
+{
+  "marca": "DASS",
+  "modelo": "ABC",
+  "numero": "1",
+  "pecas": ["LATERAL"],
+  "fios": "43"
+}
+```
 
 ## Auditoria
 

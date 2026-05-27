@@ -18,4 +18,5 @@ export interface ITelasRepository {
   editByBarcode(codbarrastela: string, data: EditTelaInput, usuario: string): Promise<Tela | null>;
   replaceByBarcode(codbarrastela: string, data: ReplaceTelaInput, usuario: string): Promise<Tela | null>;
   searchInactive(input: SearchInactiveTelasInput): Promise<PaginatedTelasOutput<Tela & { lastMovementAt: Date | null; daysWithoutMovement: number | null }>>;
+  findStrictMatch(input: { marca: string; modelo: string; numero: string; pecas: string[]; fios?: string }): Promise<Tela[]>;
 }

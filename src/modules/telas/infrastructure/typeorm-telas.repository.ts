@@ -368,6 +368,40 @@ export class TypeOrmTelasRepository implements ITelasRepository {
     }
   }
 
+  async findStrictMatch(input: { marca: string; modelo: string; numero: string; pecas: string[]; fios?: string }): Promise<Tela[]> {
+    const repository = this.dataSource.getRepository(TelaOrmEntity);
+    
+    // As pecas sao salvas como JSON.stringify(Array), entao buscaremos usando JSON e os demais campos exatos.
+    const query = repository.createQueryBuilder("tela")
+      .where("UPPER(tela.marca) = :marca", { marca: input.marca.trim().toUpperCase() })
+      .andWhere("UPPER(tela.modelo) = :modelo", { modelo: input.modelo.trim().toUpperCase() })
+      .andWhere("UPPER(tela.numerotela) = :numero", { numero: input.numero.trim().toUpperCase() })
+      .andWhere("tela.status != 'DESABILITADA'");
+
+    if (input.fios) {
+      query.andWhere("tela.fios = :fios", { fios: input.fios.trim() });
+    }
+
+    const results = await query.getMany();
+    
+    // Como a comparacao de JSON pode variar por ordem ou formatacao, filtramos em memoria a array de pecas
+    const normalizedInputPecas = normalizePecas(input.pecas);
+    const sortedInputPecas = [...normalizedInputPecas].sort().join("|");
+
+    const matched = results.filter(entity => {
+      let entityPecas: string[] = [];
+      try {
+        entityPecas = JSON.parse(entity.pecas ?? "[]");
+      } catch (e) {
+        entityPecas = [];
+      }
+      const sortedEntityPecas = [...normalizePecas(entityPecas)].sort().join("|");
+      return sortedInputPecas === sortedEntityPecas;
+    });
+
+    return matched.map(mapTelaEntity);
+  }
+
   private async insertTela(manager: EntityManager, command: CreateTelaCommand): Promise<TelaOrmEntity> {
     const usuario = String(command.usuarioCreate ?? "").trim().toUpperCase();
     if (!usuario) {
