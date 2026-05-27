@@ -58,4 +58,7 @@ export class TelaOrmEntity {
 
   @Column({ type: "varchar", length: 16, nullable: true })
   tamanho_etiqueta!: string | null;
+
+  @Column({ type: "varchar", nullable: true })
+  sku!: string | null;
 }

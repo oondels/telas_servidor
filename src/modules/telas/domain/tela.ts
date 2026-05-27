@@ -13,4 +13,5 @@ export interface Tela {
   endereco: string | null;
   createdate: Date | null;
   updatedate: Date | null;
+  sku: string | null;
 }

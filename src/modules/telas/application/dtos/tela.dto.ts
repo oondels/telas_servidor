@@ -29,6 +29,7 @@ export interface CreateTelaInput {
   tamanhoEtiqueta?: string | null;
   tamanho_etiqueta?: string | null;
   status?: string | null;
+  sku?: string | null;
 }
 
 export interface EditTelaInput extends Partial<CreateTelaInput> {

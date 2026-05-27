@@ -138,7 +138,8 @@ curl -X POST http://localhost:3000/v1/telas \
     "marca": "DASS",
     "cor": "1",
     "fios": "43",
-    "tamanhoDoQuadro": "10"
+    "tamanhoDoQuadro": "10",
+    "sku": "SKU-12345"
   }'
 ```
 
@@ -155,7 +156,8 @@ curl -X PATCH http://localhost:3000/v1/telas/TL-001 \
   -H "Content-Type: application/json" \
   -d '{
     "modelo": "XYZ",
-    "marca": "DASS"
+    "marca": "DASS",
+    "sku": "SKU-54321"
   }'
 ```
 

@@ -36,6 +36,7 @@ const mapTelaEntity = (entity: TelaOrmEntity): Tela => ({
   endereco: entity.endereco,
   createdate: entity.createdate,
   updatedate: entity.updatedate,
+  sku: entity.sku,
 });
 
 const resolveBarcode = (data: Partial<{ codbarrastela: string; codBarrasTela: string }>) => {
@@ -460,6 +461,7 @@ export class TypeOrmTelasRepository implements ITelasRepository {
       status: normalizeTelaStatus(command.data.status),
       usuariostatus: usuario,
       usuarioaltera: usuario,
+      sku: command.data.sku ? String(command.data.sku).trim() : null,
     });
 
     return manager.getRepository(TelaOrmEntity).save(entity);
@@ -495,6 +497,9 @@ export class TypeOrmTelasRepository implements ITelasRepository {
     entity.tamanho_etiqueta = tamanhoEtiquetaRaw !== undefined
       ? String(tamanhoEtiquetaRaw || "").trim().toUpperCase() || null
       : entity.tamanho_etiqueta;
+    entity.sku = data.sku !== undefined
+      ? (data.sku !== null ? String(data.sku).trim() || null : null)
+      : entity.sku;
   }
 
   private async generateUniqueBarcode(manager: EntityManager): Promise<string> {
