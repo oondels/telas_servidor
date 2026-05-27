@@ -41,8 +41,12 @@ export class BatchEnderecarTelasUseCase {
     // If the screens being moved are already at this address, they don't consume *new* space.
     // So we should find which of the scanned screens are NOT already at this address.
     const screensNotAtAddress: string[] = [];
+    const normalizedCodigosTelas: string[] = [];
+
     for (const barcode of codigosTelas) {
       const code = String(barcode || "").trim().toUpperCase();
+      normalizedCodigosTelas.push(code);
+
       const existingTela = await this.telasRepository.findByBarcode(code);
       if (!existingTela) {
         throw new AppError(404, "TELA_NAO_ENCONTRADA", `A tela com código ${code} não foi encontrada.`);
@@ -61,9 +65,9 @@ export class BatchEnderecarTelasUseCase {
     }
 
     // 4. Update screen positions batch
-    const enderecos = codigosTelas.map(() => address.address);
+    const enderecos = normalizedCodigosTelas.map(() => address.address);
     const updatedCount = await this.telasRepository.updatePositionBatch({
-      telas: codigosTelas,
+      telas: normalizedCodigosTelas,
       enderecos,
       usuario,
     });
