@@ -20,7 +20,7 @@ export interface CreateTelaInput {
   modelo: string;
   numerotela?: string;
   numero?: string;
-  cor?: number | null;
+  cor?: string | number | null;
   fios?: number | null;
   datafabricacao?: string | null;
   dataFabricacao?: string | null;

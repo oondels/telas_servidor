@@ -89,7 +89,7 @@ export class CreateSolicitacaoUseCase {
                 marca: item.marca,
                 modelo: item.modelo,
                 numerotela: item.numero,
-                cor: Number(item.cor),
+                cor: item.cor,
                 fios: Number(item.fios),
                 pecas: item.pecas,
                 tamanhoEtiqueta: item.tamanhoDoQuadro,

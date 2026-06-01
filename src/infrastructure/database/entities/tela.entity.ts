@@ -23,7 +23,7 @@ export class TelaOrmEntity {
   @Column({ type: "varchar", nullable: true })
   numerotela!: string | null;
 
-  @Column({ type: "bigint", nullable: true })
+  @Column({ type: "varchar", nullable: true })
   cor!: string | null;
 
   @Column({ type: "bigint", nullable: true })

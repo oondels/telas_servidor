@@ -4,7 +4,7 @@ export interface Tela {
   marca: string | null;
   modelo: string | null;
   numerotela: string | null;
-  cor: number | null;
+  cor: string | null;
   fios: number | null;
   datafabricacao: string | null;
   pecas: string | null;

@@ -27,7 +27,7 @@ const mapTelaEntity = (entity: TelaOrmEntity): Tela => ({
   marca: entity.marca,
   modelo: entity.modelo,
   numerotela: entity.numerotela,
-  cor: entity.cor !== null ? Number(entity.cor) : null,
+  cor: entity.cor,
   fios: entity.fios !== null ? Number(entity.fios) : null,
   datafabricacao: entity.datafabricacao,
   pecas: entity.pecas,
@@ -356,7 +356,7 @@ export class TypeOrmTelasRepository implements ITelasRepository {
           marca: item.marca,
           modelo: item.modelo,
           numerotela: item.numerotela,
-          cor: Number(item.cor),
+          cor: item.cor,
           fios: Number(item.fios),
           datafabricacao: fallbackDataFabricacao,
           pecas: item.pecas,
@@ -450,7 +450,7 @@ export class TypeOrmTelasRepository implements ITelasRepository {
       marca,
       modelo,
       numerotela,
-      cor: parseNullableNumber(command.data.cor) !== null ? String(parseNullableNumber(command.data.cor)) : null,
+      cor: command.data.cor !== undefined && command.data.cor !== null ? String(command.data.cor).trim().toUpperCase() : null,
       fios: parseNullableNumber(command.data.fios) !== null ? String(parseNullableNumber(command.data.fios)) : null,
       datafabricacao,
       pecas: JSON.stringify(normalizePecas(command.data.pecas ?? command.data.components)),
@@ -479,7 +479,7 @@ export class TypeOrmTelasRepository implements ITelasRepository {
         ? String(data.numero || "").trim().toUpperCase() || null
         : entity.numerotela;
     entity.cor = data.cor !== undefined
-      ? parseNullableNumber(data.cor) !== null ? String(parseNullableNumber(data.cor)) : null
+      ? (data.cor !== null ? String(data.cor).trim().toUpperCase() : null)
       : entity.cor;
     entity.fios = data.fios !== undefined
       ? parseNullableNumber(data.fios) !== null ? String(parseNullableNumber(data.fios)) : null
