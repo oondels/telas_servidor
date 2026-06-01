@@ -4,7 +4,7 @@ export class AddRbacAuditAndConfig1714060002000 implements MigrationInterface {
   name = "AddRbacAuditAndConfig1714060002000";
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`CREATE EXTENSION IF NOT EXISTS pgcrypto;`);
+    // await queryRunner.query(`CREATE EXTENSION IF NOT EXISTS pgcrypto;`);
 
     await queryRunner.query(`
       DO $migration$
