@@ -90,6 +90,16 @@ Body:
 }
 ```
 
+### `DELETE /v1/telas/:codigo/endereco`
+
+Requer `ADMIN` ou `MOVIMENTADOR`. Remove somente o endereço físico da tela, preservando seu cadastro para novo endereçamento posterior.
+
+### `DELETE /v1/telas/:codigo`
+
+Requer `ADMIN` ou `MOVIMENTADOR`. Exclui permanentemente a tela pelo código de barras.
+
+A operação é bloqueada com `409 TELA_COM_SOLICITACAO_ATIVA` quando a tela estiver vinculada a solicitação com status ativo (`pedido`, `aceito`, `gravacao`, `setor_em_manutencao`, `concluido` ou `entregue`).
+
 ### `POST /v1/telas/:codigo/reposicoes`
 
 Requer `ADMIN` ou `OPERADOR_TELAS`. Registra reposicao mantendo a mesma tela/codigo.

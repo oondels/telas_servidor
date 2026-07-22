@@ -25,6 +25,8 @@ Permissoes:
 - Reposicao mantem a mesma tela/codigo, exige `motivo` e registra evento `TELA_REPOSTA`.
 - Desabilitacao e uma alteracao de status para `DESABILITADA`.
 - Enderecamento registra usuario e evento de auditoria.
+- `ADMIN` e `MOVIMENTADOR` podem remover o endereço de uma tela sem excluir seu cadastro; a tela pode ser endereçada novamente depois.
+- `ADMIN` e `MOVIMENTADOR` podem excluir permanentemente uma tela. A exclusão é bloqueada quando houver solicitação ativa vinculada à tela.
 - Telas sem movimentacao sao calculadas pelo ultimo audit log de `TELA`, com fallback para `updatedate`/`createdate`.
 
 Status permitidos:
@@ -88,9 +90,11 @@ Eventos principais:
 - `TELA_CRIADA`
 - `TELA_EDITADA`
 - `ENDERECO_ATUALIZADO`
+- `ENDERECO_REMOVIDO`
 - `STATUS_ATUALIZADO`
 - `TELA_DESABILITADA`
 - `TELA_REPOSTA`
+- `TELA_EXCLUIDA`
 - `SOLICITACAO_CRIADA`
 - `SOLICITACAO_ACEITA`
 - `SOLICITACAO_REPROVADA`
