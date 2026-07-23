@@ -59,6 +59,10 @@ export interface CreateTelaCommand {
   fallbackDataFabricacao?: string | null;
 }
 
+export interface CreateTelasBatchInput {
+  telas: CreateTelaInput[];
+}
+
 export interface PaginatedTelasOutput<T> {
   telas: T[];
   total: number;

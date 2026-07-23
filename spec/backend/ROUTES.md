@@ -62,6 +62,45 @@ Query:
 
 Requer `ADMIN` ou `OPERADOR_TELAS`. Cadastra tela.
 
+### `POST /v1/telas/lote`
+
+Requer `ADMIN` ou `OPERADOR_TELAS`. Cadastra de 2 a 10 telas físicas independentes, com as especificações que forem enviadas para cada item. A operação é transacional: se qualquer item falhar, nenhuma tela é cadastrada.
+
+Cada item deve possuir um `codbarrastela` distinto; marca, modelo, número, cor, fios, peças, data de fabricação, status, SKU e tamanho da etiqueta podem ser iguais entre as telas.
+
+Body:
+
+```json
+{
+  "telas": [
+    {
+      "codbarrastela": "2800842",
+      "marca": "FILA",
+      "modelo": "ACD CLASSIC",
+      "numerotela": "12",
+      "cor": "124",
+      "fios": 14,
+      "datafabricacao": "2026-07-23",
+      "pecas": ["fitaElastico"],
+      "tamanhoEtiqueta": "70X40mm",
+      "status": "armazenada"
+    },
+    {
+      "codbarrastela": "2800843",
+      "marca": "FILA",
+      "modelo": "ACD CLASSIC",
+      "numerotela": "12",
+      "cor": "124",
+      "fios": 14,
+      "datafabricacao": "2026-07-23",
+      "pecas": ["fitaElastico"],
+      "tamanhoEtiqueta": "70X40mm",
+      "status": "armazenada"
+    }
+  ]
+}
+```
+
 ### `PATCH /v1/telas/:codigo`
 
 Requer `ADMIN` ou `OPERADOR_TELAS`. Edita tela pelo codigo de barras.
@@ -89,6 +128,16 @@ Body:
   "status": "DESABILITADA"
 }
 ```
+
+### `DELETE /v1/telas/:codigo/endereco`
+
+Requer `ADMIN` ou `MOVIMENTADOR`. Remove somente o endereço físico da tela, preservando seu cadastro para novo endereçamento posterior.
+
+### `DELETE /v1/telas/:codigo`
+
+Requer `ADMIN` ou `MOVIMENTADOR`. Exclui permanentemente a tela pelo código de barras.
+
+A operação é bloqueada com `409 TELA_COM_SOLICITACAO_ATIVA` quando a tela estiver vinculada a solicitação com status ativo (`pedido`, `aceito`, `gravacao`, `setor_em_manutencao`, `concluido` ou `entregue`).
 
 ### `POST /v1/telas/:codigo/reposicoes`
 

@@ -20,6 +20,14 @@ import {
 } from "../application/dtos/tela.dto.js";
 
 const TABLE_NAME = "fabrica.controle_telas_prateleiras";
+const ACTIVE_SOLICITACAO_STATUSES = [
+  "pedido",
+  "aceito",
+  "gravacao",
+  "setor_em_manutencao",
+  "concluido",
+  "entregue",
+];
 
 const mapTelaEntity = (entity: TelaOrmEntity): Tela => ({
   id: Number(entity.id),
@@ -149,6 +157,27 @@ export class TypeOrmTelasRepository implements ITelasRepository {
         afterState: tela as unknown as Record<string, unknown>,
       }, manager);
       return tela;
+    });
+  }
+
+  async createMany(commands: CreateTelaCommand[]): Promise<Tela[]> {
+    return this.dataSource.transaction(async (manager) => {
+      const telas: Tela[] = [];
+
+      for (const command of commands) {
+        const entity = await this.insertTela(manager, command);
+        const tela = mapTelaEntity(entity);
+        await this.auditRepository.create({
+          entityType: "TELA",
+          entityId: tela.codbarrastela,
+          action: "TELA_CRIADA",
+          actorUsuario: command.usuarioCreate,
+          afterState: tela as unknown as Record<string, unknown>,
+        }, manager);
+        telas.push(tela);
+      }
+
+      return telas;
     });
   }
 
@@ -283,6 +312,91 @@ export class TypeOrmTelasRepository implements ITelasRepository {
       }, manager);
 
       return after;
+    });
+  }
+
+  async removeAddressByBarcode(codbarrastela: string, usuario: string): Promise<Tela | null> {
+    return this.dataSource.transaction(async (manager) => {
+      const repository = manager.getRepository(TelaOrmEntity);
+      const entity = await repository.findOne({
+        where: { codbarrastela },
+        lock: { mode: "pessimistic_write" },
+      });
+
+      if (!entity) {
+        return null;
+      }
+
+      const before = mapTelaEntity(entity);
+      entity.endereco = null;
+      entity.usuarioendereco = usuario;
+      entity.usuarioaltera = usuario;
+      entity.updatedate = new Date(toBahiaSqlDateTime());
+
+      const saved = await repository.save(entity);
+      const after = mapTelaEntity(saved);
+      await this.auditRepository.create({
+        entityType: "TELA",
+        entityId: codbarrastela,
+        action: "ENDERECO_REMOVIDO",
+        actorUsuario: usuario,
+        beforeState: before as unknown as Record<string, unknown>,
+        afterState: after as unknown as Record<string, unknown>,
+      }, manager);
+
+      return after;
+    });
+  }
+
+  async deleteByBarcode(codbarrastela: string, usuario: string): Promise<Tela | null> {
+    return this.dataSource.transaction(async (manager) => {
+      const repository = manager.getRepository(TelaOrmEntity);
+      const entity = await repository.findOne({
+        where: { codbarrastela },
+        lock: { mode: "pessimistic_write" },
+      });
+
+      if (!entity) {
+        return null;
+      }
+
+      const activeSolicitacaoRows = await manager.query(
+        `
+          SELECT EXISTS (
+            SELECT 1
+            FROM fabrica.solicitacao_tela solicitacao
+            WHERE COALESCE(solicitacao.status::text, 'pedido') = ANY($2::text[])
+              AND EXISTS (
+                SELECT 1
+                FROM jsonb_array_elements(COALESCE(solicitacao.dados_pedido->'items', '[]'::jsonb)) AS item
+                WHERE item->>'id' = $1
+              )
+          ) AS exists
+        `,
+        [String(entity.id), ACTIVE_SOLICITACAO_STATUSES],
+      );
+
+      if (activeSolicitacaoRows[0]?.exists) {
+        throw new AppError(
+          409,
+          "TELA_COM_SOLICITACAO_ATIVA",
+          "Não é possível excluir uma tela vinculada a uma solicitação ativa",
+          { telaId: entity.id, codbarrastela },
+        );
+      }
+
+      const before = mapTelaEntity(entity);
+      await this.auditRepository.create({
+        entityType: "TELA",
+        entityId: codbarrastela,
+        action: "TELA_EXCLUIDA",
+        actorUsuario: usuario,
+        beforeState: before as unknown as Record<string, unknown>,
+        metadata: { exclusaoPermanente: true },
+      }, manager);
+      await repository.remove(entity);
+
+      return before;
     });
   }
 
