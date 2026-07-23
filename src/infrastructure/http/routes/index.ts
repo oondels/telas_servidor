@@ -16,13 +16,13 @@ import { CreateTelaUseCase } from "../../../modules/telas/application/use-cases/
 import { CreateTelasBatchUseCase } from "../../../modules/telas/application/use-cases/create-telas-batch.use-case.js";
 import { EditTelaUseCase } from "../../../modules/telas/application/use-cases/edit-tela.use-case.js";
 import { SearchTelasUseCase } from "../../../modules/telas/application/use-cases/search-telas.use-case.js";
-import { UpdatePosicaoTelasUseCase } from "../../../modules/telas/application/use-cases/update-posicao-telas.use-case.js";
 import { UpdateStatusTelasUseCase } from "../../../modules/telas/application/use-cases/update-status-telas.use-case.js";
 import { RemoveTelaEnderecoUseCase } from "../../../modules/telas/application/use-cases/remove-tela-endereco.use-case.js";
 import { DeleteTelaUseCase } from "../../../modules/telas/application/use-cases/delete-tela.use-case.js";
 import { CreateTelaEnderecoUseCase } from "../../../modules/telas/application/use-cases/create-tela-endereco.use-case.js";
 import { ListTelasEnderecosUseCase } from "../../../modules/telas/application/use-cases/list-telas-enderecos.use-case.js";
 import { BatchEnderecarTelasUseCase } from "../../../modules/telas/application/use-cases/batch-enderecar-telas.use-case.js";
+import { ClearTelaEnderecoUseCase } from "../../../modules/telas/application/use-cases/clear-tela-endereco.use-case.js";
 import { TypeOrmTelasRepository } from "../../../modules/telas/infrastructure/typeorm-telas.repository.js";
 import { TypeOrmTelasEnderecosRepository } from "../../../modules/telas/infrastructure/typeorm-telas-enderecos.repository.js";
 import { normalizeUserRole, USER_ROLES } from "../../../modules/users/domain/user-role.js";
@@ -60,14 +60,14 @@ export const registerRoutes = (app: Express) => {
   const searchTelasUseCase = new SearchTelasUseCase(telasRepository);
   const createTelaUseCase = new CreateTelaUseCase(telasRepository);
   const createTelasBatchUseCase = new CreateTelasBatchUseCase(telasRepository);
-  const updatePosicaoTelasUseCase = new UpdatePosicaoTelasUseCase(telasRepository);
   const updateStatusTelasUseCase = new UpdateStatusTelasUseCase(telasRepository);
   const removeTelaEnderecoUseCase = new RemoveTelaEnderecoUseCase(telasRepository);
   const deleteTelaUseCase = new DeleteTelaUseCase(telasRepository);
   const editTelaUseCase = new EditTelaUseCase(telasRepository);
   const createTelaEnderecoUseCase = new CreateTelaEnderecoUseCase(telasEnderecosRepository);
   const listTelasEnderecosUseCase = new ListTelasEnderecosUseCase(telasEnderecosRepository);
-  const batchEnderecarTelasUseCase = new BatchEnderecarTelasUseCase(telasEnderecosRepository, telasRepository);
+  const batchEnderecarTelasUseCase = new BatchEnderecarTelasUseCase(telasEnderecosRepository);
+  const clearTelaEnderecoUseCase = new ClearTelaEnderecoUseCase(telasEnderecosRepository);
 
   const searchSolicitacoesUseCase = new SearchSolicitacoesUseCase(solicitacoesRepository);
   const getSolicitacaoByIdUseCase = new GetSolicitacaoByIdUseCase(solicitacoesRepository);
@@ -215,6 +215,15 @@ export const registerRoutes = (app: Express) => {
     }),
   );
 
+  v1.post(
+    "/enderecos/:id/limpar",
+    requireRoles(USER_ROLES.ADMIN, USER_ROLES.OPERADOR_TELAS),
+    asyncHandler(async (req, res) => {
+      const result = await clearTelaEnderecoUseCase.execute(Number(req.params.id), getActorUsuario(req));
+      return sendSuccess(res, 200, { message: "success", ...result });
+    }),
+  );
+
   v1.patch(
     "/telas/:codigo",
     requireRoles(USER_ROLES.ADMIN, USER_ROLES.OPERADOR_TELAS),
@@ -228,11 +237,11 @@ export const registerRoutes = (app: Express) => {
     "/telas/:codigo/endereco",
     requireRoles(USER_ROLES.ADMIN, USER_ROLES.OPERADOR_TELAS, USER_ROLES.MOVIMENTADOR),
     asyncHandler(async (req, res) => {
-      const result = await updatePosicaoTelasUseCase.execute(
-        String(req.params.codigo).trim().toUpperCase(),
-        req.body?.endereco,
-        getActorUsuario(req),
-      );
+      const result = await batchEnderecarTelasUseCase.execute({
+        barcodeEndereco: req.body?.endereco,
+        codigosTelas: [String(req.params.codigo).trim().toUpperCase()],
+        usuario: getActorUsuario(req),
+      });
       return sendSuccess(res, 200, { message: "success", ...result });
     }),
   );
