@@ -13,6 +13,7 @@ import { StartSolicitacaoUseCase } from "../../../modules/solicitacoes/applicati
 import { normalizeSolicitacaoStatus } from "../../../modules/solicitacoes/domain/solicitacao-status.js";
 import { TypeOrmSolicitacoesRepository } from "../../../modules/solicitacoes/infrastructure/typeorm-solicitacoes.repository.js";
 import { CreateTelaUseCase } from "../../../modules/telas/application/use-cases/create-tela.use-case.js";
+import { CreateTelasBatchUseCase } from "../../../modules/telas/application/use-cases/create-telas-batch.use-case.js";
 import { EditTelaUseCase } from "../../../modules/telas/application/use-cases/edit-tela.use-case.js";
 import { SearchTelasUseCase } from "../../../modules/telas/application/use-cases/search-telas.use-case.js";
 import { UpdatePosicaoTelasUseCase } from "../../../modules/telas/application/use-cases/update-posicao-telas.use-case.js";
@@ -58,6 +59,7 @@ export const registerRoutes = (app: Express) => {
 
   const searchTelasUseCase = new SearchTelasUseCase(telasRepository);
   const createTelaUseCase = new CreateTelaUseCase(telasRepository);
+  const createTelasBatchUseCase = new CreateTelasBatchUseCase(telasRepository);
   const updatePosicaoTelasUseCase = new UpdatePosicaoTelasUseCase(telasRepository);
   const updateStatusTelasUseCase = new UpdateStatusTelasUseCase(telasRepository);
   const removeTelaEnderecoUseCase = new RemoveTelaEnderecoUseCase(telasRepository);
@@ -188,6 +190,15 @@ export const registerRoutes = (app: Express) => {
     asyncHandler(async (req, res) => {
       const tela = await createTelaUseCase.execute(req.body ?? {}, getActorUsuario(req));
       return sendSuccess(res, 201, { message: "success", tela });
+    }),
+  );
+
+  v1.post(
+    "/telas/lote",
+    requireRoles(USER_ROLES.ADMIN, USER_ROLES.OPERADOR_TELAS),
+    asyncHandler(async (req, res) => {
+      const telas = await createTelasBatchUseCase.execute(req.body ?? {}, getActorUsuario(req));
+      return sendSuccess(res, 201, { message: "success", telas });
     }),
   );
 

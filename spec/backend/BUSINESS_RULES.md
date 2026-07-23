@@ -21,6 +21,7 @@ Permissoes:
 ## Telas
 
 - Cadastro exige codigo de barras, marca, modelo, numero da tela e data de fabricacao.
+- O cadastro em lote cria de 2 a 10 telas físicas independentes na mesma transação. As telas podem compartilhar todas as especificações, mas cada uma deve ter código de barras próprio e auditoria individual de criação.
 - Edicao e reposicao usam o codigo de barras como identificador publico.
 - Reposicao mantem a mesma tela/codigo, exige `motivo` e registra evento `TELA_REPOSTA`.
 - Desabilitacao e uma alteracao de status para `DESABILITADA`.

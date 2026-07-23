@@ -160,6 +160,27 @@ export class TypeOrmTelasRepository implements ITelasRepository {
     });
   }
 
+  async createMany(commands: CreateTelaCommand[]): Promise<Tela[]> {
+    return this.dataSource.transaction(async (manager) => {
+      const telas: Tela[] = [];
+
+      for (const command of commands) {
+        const entity = await this.insertTela(manager, command);
+        const tela = mapTelaEntity(entity);
+        await this.auditRepository.create({
+          entityType: "TELA",
+          entityId: tela.codbarrastela,
+          action: "TELA_CRIADA",
+          actorUsuario: command.usuarioCreate,
+          afterState: tela as unknown as Record<string, unknown>,
+        }, manager);
+        telas.push(tela);
+      }
+
+      return telas;
+    });
+  }
+
   async updatePositionBatch(input: BatchUpdatePosicaoInput): Promise<number> {
     return this.dataSource.transaction(async (manager) => {
       const updateDate = toBahiaSqlDateTime();
