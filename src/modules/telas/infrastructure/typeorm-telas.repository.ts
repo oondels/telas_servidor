@@ -53,6 +53,12 @@ const resolveBarcode = (data: Partial<{ codbarrastela: string; codBarrasTela: st
     .toUpperCase();
 };
 
+const isDuplicateBarcodeError = (error: unknown) => {
+  if (!error || typeof error !== "object") return false;
+  const databaseError = error as { code?: string; constraint?: string };
+  return databaseError.code === "23505" && databaseError.constraint === "uq_controle_telas_codbarrastela_normalizado";
+};
+
 const generateBarcodeCandidate = () => {
   const ts = Date.now().toString(36).toUpperCase();
   const rnd = Math.floor(Math.random() * 1_000_000)
@@ -146,25 +152,8 @@ export class TypeOrmTelasRepository implements ITelasRepository {
   }
 
   async create(command: CreateTelaCommand): Promise<Tela> {
-    return this.dataSource.transaction(async (manager) => {
-      const entity = await this.insertTela(manager, command);
-      const tela = mapTelaEntity(entity);
-      await this.auditRepository.create({
-        entityType: "TELA",
-        entityId: tela.codbarrastela,
-        action: "TELA_CRIADA",
-        actorUsuario: command.usuarioCreate,
-        afterState: tela as unknown as Record<string, unknown>,
-      }, manager);
-      return tela;
-    });
-  }
-
-  async createMany(commands: CreateTelaCommand[]): Promise<Tela[]> {
-    return this.dataSource.transaction(async (manager) => {
-      const telas: Tela[] = [];
-
-      for (const command of commands) {
+    try {
+      return await this.dataSource.transaction(async (manager) => {
         const entity = await this.insertTela(manager, command);
         const tela = mapTelaEntity(entity);
         await this.auditRepository.create({
@@ -174,11 +163,42 @@ export class TypeOrmTelasRepository implements ITelasRepository {
           actorUsuario: command.usuarioCreate,
           afterState: tela as unknown as Record<string, unknown>,
         }, manager);
-        telas.push(tela);
+        return tela;
+      });
+    } catch (error) {
+      if (isDuplicateBarcodeError(error)) {
+        throw new AppError(409, "TELA_DUPLICADA", "Tela já cadastrada");
       }
+      throw error;
+    }
+  }
 
-      return telas;
-    });
+  async createMany(commands: CreateTelaCommand[]): Promise<Tela[]> {
+    try {
+      return await this.dataSource.transaction(async (manager) => {
+        const telas: Tela[] = [];
+
+        for (const command of commands) {
+          const entity = await this.insertTela(manager, command);
+          const tela = mapTelaEntity(entity);
+          await this.auditRepository.create({
+            entityType: "TELA",
+            entityId: tela.codbarrastela,
+            action: "TELA_CRIADA",
+            actorUsuario: command.usuarioCreate,
+            afterState: tela as unknown as Record<string, unknown>,
+          }, manager);
+          telas.push(tela);
+        }
+
+        return telas;
+      });
+    } catch (error) {
+      if (isDuplicateBarcodeError(error)) {
+        throw new AppError(409, "TELA_DUPLICADA", "Tela já cadastrada");
+      }
+      throw error;
+    }
   }
 
   async updatePositionBatch(input: BatchUpdatePosicaoInput): Promise<number> {
@@ -348,6 +368,57 @@ export class TypeOrmTelasRepository implements ITelasRepository {
     });
   }
 
+  async removeAddressBatch(codigos: string[], usuario: string): Promise<number> {
+    return this.dataSource.transaction(async (manager) => {
+      const repository = manager.getRepository(TelaOrmEntity);
+      const entities: TelaOrmEntity[] = [];
+
+      for (const codigo of [...new Set(codigos.map((item) => String(item).trim().toUpperCase()))]) {
+        const entity = await repository.findOne({
+          where: { codbarrastela: codigo },
+          lock: { mode: "pessimistic_write" },
+        });
+
+        if (!entity) {
+          throw new AppError(404, "TELA_NAO_ENCONTRADA", "Uma ou mais telas não foram encontradas", { codigo });
+        }
+
+        if (!entity.endereco) {
+          throw new AppError(
+            409,
+            "TELA_SEM_ENDERECO",
+            "Todas as telas selecionadas precisam estar endereçadas para limpar os endereços",
+            { codigo },
+          );
+        }
+
+        entities.push(entity);
+      }
+
+      const updateDate = new Date(toBahiaSqlDateTime());
+      for (const entity of entities) {
+        const codigo = String(entity.codbarrastela ?? "");
+        const before = mapTelaEntity(entity);
+        entity.endereco = null;
+        entity.usuarioendereco = usuario;
+        entity.usuarioaltera = usuario;
+        entity.updatedate = updateDate;
+
+        const saved = await repository.save(entity);
+        await this.auditRepository.create({
+          entityType: "TELA",
+          entityId: codigo,
+          action: "ENDERECO_REMOVIDO",
+          actorUsuario: usuario,
+          beforeState: before as unknown as Record<string, unknown>,
+          afterState: mapTelaEntity(saved) as unknown as Record<string, unknown>,
+        }, manager);
+      }
+
+      return entities.length;
+    });
+  }
+
   async deleteByBarcode(codbarrastela: string, usuario: string): Promise<Tela | null> {
     return this.dataSource.transaction(async (manager) => {
       const repository = manager.getRepository(TelaOrmEntity);
@@ -397,6 +468,68 @@ export class TypeOrmTelasRepository implements ITelasRepository {
       await repository.remove(entity);
 
       return before;
+    });
+  }
+
+  async deleteBatch(codigos: string[], usuario: string): Promise<number> {
+    return this.dataSource.transaction(async (manager) => {
+      const repository = manager.getRepository(TelaOrmEntity);
+      const entities: TelaOrmEntity[] = [];
+      const uniqueCodes = [...new Set(codigos.map((item) => String(item).trim().toUpperCase()))];
+
+      for (const codigo of uniqueCodes) {
+        const entity = await repository.findOne({
+          where: { codbarrastela: codigo },
+          lock: { mode: "pessimistic_write" },
+        });
+
+        if (!entity) {
+          throw new AppError(404, "TELA_NAO_ENCONTRADA", "Uma ou mais telas não foram encontradas", { codigo });
+        }
+
+        const activeSolicitacaoRows = await manager.query(
+          `
+            SELECT EXISTS (
+              SELECT 1
+              FROM fabrica.solicitacao_tela solicitacao
+              WHERE COALESCE(solicitacao.status::text, 'pedido') = ANY($2::text[])
+                AND EXISTS (
+                  SELECT 1
+                  FROM jsonb_array_elements(COALESCE(solicitacao.dados_pedido->'items', '[]'::jsonb)) AS item
+                  WHERE item->>'id' = $1
+                )
+            ) AS exists
+          `,
+          [String(entity.id), ACTIVE_SOLICITACAO_STATUSES],
+        );
+
+        if (activeSolicitacaoRows[0]?.exists) {
+          throw new AppError(
+            409,
+            "TELA_COM_SOLICITACAO_ATIVA",
+            "Não é possível excluir as telas selecionadas porque uma delas está vinculada a uma solicitação ativa",
+            { telaId: entity.id, codbarrastela: codigo },
+          );
+        }
+
+        entities.push(entity);
+      }
+
+      for (const entity of entities) {
+        const codigo = String(entity.codbarrastela ?? "");
+        const before = mapTelaEntity(entity);
+        await this.auditRepository.create({
+          entityType: "TELA",
+          entityId: codigo,
+          action: "TELA_EXCLUIDA",
+          actorUsuario: usuario,
+          beforeState: before as unknown as Record<string, unknown>,
+          metadata: { exclusaoPermanente: true, operacao: "lote" },
+        }, manager);
+        await repository.remove(entity);
+      }
+
+      return entities.length;
     });
   }
 

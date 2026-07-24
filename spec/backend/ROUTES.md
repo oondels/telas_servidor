@@ -117,6 +117,8 @@ Body:
 }
 ```
 
+A tela precisa estar sem endereço; não é permitida transferência direta entre endereços.
+
 ### `PATCH /v1/telas/:codigo/status`
 
 Requer `ADMIN` ou `OPERADOR_TELAS`. Atualiza status da tela.
@@ -132,6 +134,10 @@ Body:
 ### `DELETE /v1/telas/:codigo/endereco`
 
 Requer `ADMIN` ou `MOVIMENTADOR`. Remove somente o endereço físico da tela, preservando seu cadastro para novo endereçamento posterior.
+
+### `POST /v1/enderecos/:id/limpar`
+
+Requer `ADMIN` ou `OPERADOR_TELAS`. Libera todas as telas ocupando o endereço, sem excluir o endereço nem os cadastros das telas. Retorna o endereço e a quantidade de `telasLiberadas`.
 
 ### `DELETE /v1/telas/:codigo`
 
