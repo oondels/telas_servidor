@@ -16,6 +16,8 @@ export interface ITelasRepository {
   createMany(commands: CreateTelaCommand[]): Promise<Tela[]>;
   updatePositionBatch(input: BatchUpdatePosicaoInput): Promise<number>;
   updateStatusBatch(input: BatchUpdateStatusInput): Promise<number>;
+  removeAddressBatch(codigos: string[], usuario: string): Promise<number>;
+  deleteBatch(codigos: string[], usuario: string): Promise<number>;
   editByBarcode(codbarrastela: string, data: EditTelaInput, usuario: string): Promise<Tela | null>;
   replaceByBarcode(codbarrastela: string, data: ReplaceTelaInput, usuario: string): Promise<Tela | null>;
   removeAddressByBarcode(codbarrastela: string, usuario: string): Promise<Tela | null>;

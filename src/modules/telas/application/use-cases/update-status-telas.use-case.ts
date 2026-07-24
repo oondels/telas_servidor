@@ -11,7 +11,10 @@ export class UpdateStatusTelasUseCase {
       throw new AppError(400, "USUARIO_OBRIGATORIO", "Usuário autenticado não informado");
     }
 
-    const telas = splitSlashValues(telasRaw).map((item) => item.toUpperCase());
+    const rawTelas = Array.isArray(telasRaw)
+      ? telasRaw.flatMap((item) => splitSlashValues(item))
+      : splitSlashValues(telasRaw);
+    const telas = [...new Set(rawTelas.map((item) => item.toUpperCase()))];
     if (!telas.length) {
       throw new AppError(400, "TELAS_OBRIGATORIAS", "Informe pelo menos uma tela para atualizar status");
     }

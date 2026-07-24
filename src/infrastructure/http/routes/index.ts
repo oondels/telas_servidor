@@ -23,6 +23,8 @@ import { CreateTelaEnderecoUseCase } from "../../../modules/telas/application/us
 import { ListTelasEnderecosUseCase } from "../../../modules/telas/application/use-cases/list-telas-enderecos.use-case.js";
 import { BatchEnderecarTelasUseCase } from "../../../modules/telas/application/use-cases/batch-enderecar-telas.use-case.js";
 import { ClearTelaEnderecoUseCase } from "../../../modules/telas/application/use-cases/clear-tela-endereco.use-case.js";
+import { RemoveTelasEnderecoBatchUseCase } from "../../../modules/telas/application/use-cases/remove-telas-endereco-batch.use-case.js";
+import { DeleteTelasBatchUseCase } from "../../../modules/telas/application/use-cases/delete-telas-batch.use-case.js";
 import { TypeOrmTelasRepository } from "../../../modules/telas/infrastructure/typeorm-telas.repository.js";
 import { TypeOrmTelasEnderecosRepository } from "../../../modules/telas/infrastructure/typeorm-telas-enderecos.repository.js";
 import { normalizeUserRole, USER_ROLES } from "../../../modules/users/domain/user-role.js";
@@ -68,6 +70,8 @@ export const registerRoutes = (app: Express) => {
   const listTelasEnderecosUseCase = new ListTelasEnderecosUseCase(telasEnderecosRepository);
   const batchEnderecarTelasUseCase = new BatchEnderecarTelasUseCase(telasEnderecosRepository);
   const clearTelaEnderecoUseCase = new ClearTelaEnderecoUseCase(telasEnderecosRepository);
+  const removeTelasEnderecoBatchUseCase = new RemoveTelasEnderecoBatchUseCase(telasRepository);
+  const deleteTelasBatchUseCase = new DeleteTelasBatchUseCase(telasRepository);
 
   const searchSolicitacoesUseCase = new SearchSolicitacoesUseCase(solicitacoesRepository);
   const getSolicitacaoByIdUseCase = new GetSolicitacaoByIdUseCase(solicitacoesRepository);
@@ -211,6 +215,44 @@ export const registerRoutes = (app: Express) => {
         codigosTelas: req.body?.telas,
         usuario: getActorUsuario(req),
       });
+      return sendSuccess(res, 200, { message: "success", ...result });
+    }),
+  );
+
+  v1.patch(
+    "/telas/batch-status",
+    requireRoles(USER_ROLES.ADMIN, USER_ROLES.OPERADOR_TELAS),
+    asyncHandler(async (req, res) => {
+      const codigos = Array.isArray(req.body?.telas)
+        ? [...new Set(req.body.telas.map((codigo: unknown) => String(codigo ?? "").trim().toUpperCase()).filter(Boolean))]
+        : [];
+      if (codigos.length < 2) {
+        throw new AppError(400, "TELAS_INSUFICIENTES", "Selecione pelo menos duas telas para uma ação em lote");
+      }
+
+      const result = await updateStatusTelasUseCase.execute(
+        codigos,
+        req.body?.status,
+        getActorUsuario(req),
+      );
+      return sendSuccess(res, 200, { message: "success", ...result });
+    }),
+  );
+
+  v1.post(
+    "/telas/batch-remover-endereco",
+    requireRoles(USER_ROLES.ADMIN, USER_ROLES.MOVIMENTADOR),
+    asyncHandler(async (req, res) => {
+      const result = await removeTelasEnderecoBatchUseCase.execute(req.body?.telas, getActorUsuario(req));
+      return sendSuccess(res, 200, { message: "success", ...result });
+    }),
+  );
+
+  v1.post(
+    "/telas/batch-excluir",
+    requireRoles(USER_ROLES.ADMIN, USER_ROLES.MOVIMENTADOR),
+    asyncHandler(async (req, res) => {
+      const result = await deleteTelasBatchUseCase.execute(req.body?.telas, getActorUsuario(req));
       return sendSuccess(res, 200, { message: "success", ...result });
     }),
   );
