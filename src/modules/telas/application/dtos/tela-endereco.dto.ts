@@ -1,5 +1,10 @@
+import { TelaEnderecoMetadata, TelaEnderecoType } from "../../domain/tela-endereco-type.js";
+
 export interface CreateTelaEnderecoInput {
-  address: string;
+  type?: TelaEnderecoType | string;
+  address?: string;
+  data?: Record<string, unknown>;
+  metadata?: TelaEnderecoMetadata;
   vagas: number;
 }
 
