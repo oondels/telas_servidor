@@ -1,4 +1,5 @@
 import { AppError } from "../../../../shared/domain/errors/app-error.js";
+import { TELA_STATUS } from "../../domain/tela-status.js";
 import { ITelasRepository } from "../contracts/telas.repository.js";
 import { CreateTelasBatchInput } from "../dtos/tela.dto.js";
 
@@ -33,7 +34,11 @@ export class CreateTelasBatchUseCase {
 
     return this.telasRepository.createMany(
       telas.map((tela) => ({
-        data: tela,
+        data: {
+          ...tela,
+          status: TELA_STATUS.SEM_ENDERECO,
+          endereco: undefined,
+        },
         usuarioCreate,
         autoGenerateBarcode: false,
       })),
