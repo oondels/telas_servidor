@@ -38,6 +38,9 @@ export class TelaOrmEntity {
   @Column({ type: "varchar", length: 40, nullable: true })
   codbarrastela!: string | null;
 
+  @Column({ name: "endereco_id", type: "bigint", nullable: true })
+  enderecoId!: string | null;
+
   @Column({ type: "varchar", nullable: true })
   endereco!: string | null;
 
