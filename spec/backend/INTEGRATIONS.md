@@ -7,12 +7,15 @@ A conexao e centralizada em `src/config/database.ts`; variaveis sao validadas em
 Entidades atuais:
 
 - `fabrica.controle_telas_prateleiras`
+- `fabrica.telas_enderecos`
 - `fabrica.solicitacao_tela`
 - `fabrica.telas_usuarios`
 - `fabrica.telas_audit_events`
 - `fabrica.telas_configuracoes`
 
 `synchronize` permanece `false`; mudancas de schema devem usar migrations.
+
+`1785122200000-AddTipoToTelasEnderecos.ts` adiciona tipo, nome e número aos endereços, classifica os registros existentes como `INVENTARIO` e marca telas sem localização como `SEM_ENDERECO`.
 
 ## Migration de Conclusao
 

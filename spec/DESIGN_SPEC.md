@@ -9,6 +9,7 @@ O objetivo e manter uma camada confiavel de controle operacional, reduzindo perd
 ## Dominio Funcional
 
 - **Telas**: registros fisicos de telas de serigrafia, com codigo de barras, marca, modelo, numero, cor, fios, pecas, tamanho de etiqueta, status e endereco.
+- **Endereços**: posições com capacidade limitada, classificadas como inventário (`Rua-Bloco-Nível`) ou produção (`PROD-Número`).
 - **Solicitacoes**: pedidos de telas feitos por usuarios autorizados da producao, com dados do pedido em JSON, status operacional, observacoes e usuarios envolvidos.
 - **Enderecamento**: atualizacao do local fisico onde uma ou mais telas estao armazenadas.
 - **Status de tela**: classificacao operacional da tela, normalizada pelo dominio.
@@ -54,9 +55,11 @@ Controllers nao devem conter regra de negocio. Use cases coordenam regras e repo
    - Repository executa a busca e retorna resposta paginada.
 
 4. **Enderecamento de telas**
-   - Usuario autenticado envia uma lista de telas e um ou mais enderecos.
-   - Use case valida matriz tela/endereco.
-   - Repository atualiza lote e usuario responsavel.
+   - Usuario autenticado envia uma lista de telas e o endereço de destino.
+   - Use case valida os códigos e o repository bloqueia endereço e telas na transação.
+   - Repository valida capacidade, transfere as telas e define `PRODUCAO` para destino de produção ou `ARMAZENADA` para inventário.
+   - Remoção ou limpeza de endereço define `SEM_ENDERECO`.
+   - Endereço e status anteriores e novos são registrados na auditoria.
 
 5. **Solicitacao de telas**
    - Usuario ativo cria pedido com itens validos.

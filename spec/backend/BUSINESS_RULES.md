@@ -20,30 +20,36 @@ Permissoes:
 
 ## Telas
 
-- Cadastro exige codigo de barras, marca, modelo, numero da tela e data de fabricacao.
-- O cadastro em lote cria de 2 a 10 telas físicas independentes na mesma transação. As telas podem compartilhar todas as especificações, mas cada uma deve ter código de barras próprio e auditoria individual de criação.
+- Cadastro exige codigo de barras, marca, modelo, numero da tela e data de fabricacao. Como ainda não possui endereço, a nova tela recebe `SEM_ENDERECO`.
+- O cadastro em lote cria de 2 a 10 telas físicas independentes na mesma transação. As telas podem compartilhar todas as especificações, mas cada uma deve ter código de barras próprio, recebe `SEM_ENDERECO` e possui auditoria individual de criação.
 - Edicao e reposicao usam o codigo de barras como identificador publico.
 - Reposicao mantem a mesma tela/codigo, exige `motivo` e registra evento `TELA_REPOSTA`.
-- Desabilitacao e uma alteracao de status para `DESABILITADA`.
-- Enderecamento registra usuario e evento de auditoria e respeita a capacidade do endereço de forma atômica.
-- Uma tela já alocada pode ser transferida diretamente para outro endereço. A transferência libera o endereço anterior automaticamente, ocupa uma vaga no destino e registra os endereços anterior e novo na auditoria.
-- A limpeza de endereço preserva o cadastro do endereço e das telas, remove o endereço físico de todas as telas alocadas e registra auditoria individual.
+- Enderecos de `INVENTARIO` usam o formato `Rua-Bloco-Nivel` (por exemplo `01-01-01`).
+- Enderecos de `PRODUCAO` usam nome e numero, inicialmente com nome fixo `PROD` (por exemplo `PROD-01`).
+- Ambos os tipos possuem capacidade configurada e não podem receber telas além das vagas disponíveis.
+- Enderecamento registra usuario e evento de auditoria e respeita a capacidade do endereço de forma atômica. Destino de produção define `PRODUCAO`; destino de inventário define `ARMAZENADA`.
+- Uma tela já alocada pode ser transferida diretamente para outro endereço. A transferência libera o endereço anterior automaticamente, ocupa uma vaga no destino e registra endereço e status anteriores e novos na auditoria.
+- A limpeza ou remoção de endereço preserva o cadastro, remove o endereço físico, define `SEM_ENDERECO` e registra auditoria individual.
 - O código de barras identifica uma única tela física e não pode ser duplicado.
 - `ADMIN` e `MOVIMENTADOR` podem remover o endereço de uma tela sem excluir seu cadastro; a tela pode ser endereçada novamente depois.
 - `ADMIN` e `MOVIMENTADOR` podem excluir permanentemente uma tela. A exclusão é bloqueada quando houver solicitação ativa vinculada à tela.
 - Telas sem movimentacao sao calculadas pelo ultimo audit log de `TELA`, com fallback para `updatedate`/`createdate`.
 
-Status permitidos:
+O status de localização não pode ser alterado manualmente por rota de criação, edição ou ação em lote. Status de localização:
 
 - `PRODUCAO`
-- `TERMINADA`
 - `ARMAZENADA`
-- `ESTRAGADA`
+- `SEM_ENDERECO`
+
+Status operacionais internos preservados:
+
 - `SOLICITADA`
 - `EM_MOVIMENTACAO`
 - `RETIRADA`
 - `EM_REPOSICAO`
 - `DESABILITADA`
+
+`TERMINADA` e `ESTRAGADA` são valores legados: não podem ser atribuídos manualmente e são substituídos pelo status correspondente na próxima movimentação da tela.
 
 ## Solicitacoes
 
@@ -64,7 +70,7 @@ As solicitações NÃO exigem mais o `id` direto da tela. A vinculação é feit
 2. **Mais de 1 Match:** Retorna erro HTTP 409 (`MULTIPLAS_TELAS_ENCONTRADAS`) com a lista de telas. O usuário deve escolher qual ID exato deseja no frontend.
 3. **0 Matches (Auto-cadastro):** O sistema checa a configuração `auto_cadastro_telas`.
    - Se `false`: Retorna HTTP 400 avisando que a tela não foi encontrada.
-   - Se `true`: Retorna HTTP 400 (`DADOS_INCOMPLETOS_AUTO_CADASTRO`) se faltar `fios`, `cor` ou `tamanhoDoQuadro` (para reposição). Se todos os dados estiverem presentes, a tela é **cadastrada automaticamente** no sistema (status PRODUCAO) e vinculada à solicitação.
+   - Se `true`: Retorna HTTP 400 (`DADOS_INCOMPLETOS_AUTO_CADASTRO`) se faltar `fios`, `cor` ou `tamanhoDoQuadro` (para reposição). Se todos os dados estiverem presentes, a tela é **cadastrada automaticamente** no sistema com `SEM_ENDERECO` e vinculada à solicitação.
 
 - Qualquer usuario ativo pode criar solicitacao para sua propria matricula autenticada.
 - Atender, iniciar, concluir, entregar e devolver exigem `ADMIN`, `OPERADOR_TELAS` ou `MOVIMENTADOR`.

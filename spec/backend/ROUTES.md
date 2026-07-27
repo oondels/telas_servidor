@@ -66,7 +66,7 @@ Requer `ADMIN` ou `OPERADOR_TELAS`. Cadastra tela.
 
 Requer `ADMIN` ou `OPERADOR_TELAS`. Cadastra de 2 a 10 telas físicas independentes, com as especificações que forem enviadas para cada item. A operação é transacional: se qualquer item falhar, nenhuma tela é cadastrada.
 
-Cada item deve possuir um `codbarrastela` distinto; marca, modelo, número, cor, fios, peças, data de fabricação, status, SKU e tamanho da etiqueta podem ser iguais entre as telas.
+Cada item deve possuir um `codbarrastela` distinto; marca, modelo, número, cor, fios, peças, data de fabricação, SKU e tamanho da etiqueta podem ser iguais entre as telas. O status não é aceito no payload e começa como `SEM_ENDERECO`.
 
 Body:
 
@@ -82,8 +82,7 @@ Body:
       "fios": 14,
       "datafabricacao": "2026-07-23",
       "pecas": ["fitaElastico"],
-      "tamanhoEtiqueta": "70X40mm",
-      "status": "armazenada"
+      "tamanhoEtiqueta": "70X40mm"
     },
     {
       "codbarrastela": "2800843",
@@ -94,8 +93,7 @@ Body:
       "fios": 14,
       "datafabricacao": "2026-07-23",
       "pecas": ["fitaElastico"],
-      "tamanhoEtiqueta": "70X40mm",
-      "status": "armazenada"
+      "tamanhoEtiqueta": "70X40mm"
     }
   ]
 }
@@ -103,7 +101,7 @@ Body:
 
 ### `PATCH /v1/telas/:codigo`
 
-Requer `ADMIN` ou `OPERADOR_TELAS`. Edita tela pelo codigo de barras.
+Requer `ADMIN` ou `OPERADOR_TELAS`. Edita tela pelo codigo de barras. Os campos `status` e `endereco` não são aceitos; localização e status são gerenciados pelo fluxo de endereçamento.
 
 ### `PATCH /v1/telas/:codigo/endereco`
 
@@ -117,27 +115,15 @@ Body:
 }
 ```
 
-Se a tela já estiver alocada em outro endereço, ela será transferida automaticamente para o novo destino, respeitando a capacidade disponível.
-
-### `PATCH /v1/telas/:codigo/status`
-
-Requer `ADMIN` ou `OPERADOR_TELAS`. Atualiza status da tela.
-
-Body:
-
-```json
-{
-  "status": "DESABILITADA"
-}
-```
+Se a tela já estiver alocada em outro endereço, ela será transferida automaticamente para o novo destino, respeitando a capacidade disponível. O status passa para `PRODUCAO` no destino de produção ou `ARMAZENADA` no destino de inventário.
 
 ### `DELETE /v1/telas/:codigo/endereco`
 
-Requer `ADMIN` ou `MOVIMENTADOR`. Remove somente o endereço físico da tela, preservando seu cadastro para novo endereçamento posterior.
+Requer `ADMIN` ou `MOVIMENTADOR`. Remove somente o endereço físico da tela, preserva seu cadastro e define o status `SEM_ENDERECO`.
 
 ### `POST /v1/enderecos/:id/limpar`
 
-Requer `ADMIN` ou `OPERADOR_TELAS`. Libera todas as telas ocupando o endereço, sem excluir o endereço nem os cadastros das telas. Retorna o endereço e a quantidade de `telasLiberadas`.
+Requer `ADMIN` ou `OPERADOR_TELAS`. Libera todas as telas ocupando o endereço, sem excluir o endereço nem os cadastros das telas, e define `SEM_ENDERECO`. Retorna o endereço e a quantidade de `telasLiberadas`.
 
 ### `DELETE /v1/telas/:codigo`
 
@@ -153,8 +139,7 @@ Body minimo:
 
 ```json
 {
-  "motivo": "Substituicao fisica",
-  "status": "EM_REPOSICAO"
+  "motivo": "Substituicao fisica"
 }
 ```
 
@@ -305,17 +290,33 @@ Body:
 ## Endereços e Endereçamento em Lote
 
 ### `GET /v1/enderecos`
-Requer `ADMIN`, `OPERADOR_TELAS` ou `MOVIMENTADOR`. Lista todos os endereços de telas cadastrados com estatísticas de ocupação.
+Requer `ADMIN`, `OPERADOR_TELAS` ou `MOVIMENTADOR`. Lista todos os endereços de telas cadastrados com estatísticas de ocupação e os campos `tipo`, `nome` e `numero`.
 
 ### `POST /v1/enderecos`
-Requer `ADMIN` ou `OPERADOR_TELAS`. Cadastra um novo endereço físico de prateleira (Rua - Bloco - Nível) com uma quantidade limite de vagas.
-Body:
+Requer `ADMIN` ou `OPERADOR_TELAS`. Cadastra um endereço de inventário ou produção, sempre com quantidade limite de vagas.
+
+Body para inventário:
+
 ```json
 {
+  "tipo": "INVENTARIO",
   "address": "01-01-01",
   "vagas": 23
 }
 ```
+
+Body para produção:
+
+```json
+{
+  "tipo": "PRODUCAO",
+  "nome": "PROD",
+  "numero": 1,
+  "vagas": 10
+}
+```
+
+O endereço de produção será normalizado para `PROD-01`; neste momento, `PROD` é o único nome permitido.
 
 Respostas de erro relevantes:
 
@@ -339,7 +340,7 @@ Body:
 Requer `ADMIN`. Remove um endereço se não houver nenhuma tela associada a ele.
 
 ### `PATCH /v1/telas/batch-endereco`
-Requer `ADMIN`, `OPERADOR_TELAS` ou `MOVIMENTADOR`. Realiza o endereçamento em lote de várias telas de uma vez para um endereço específico, transferindo automaticamente as telas alocadas em outros endereços e validando a capacidade disponível no destino.
+Requer `ADMIN`, `OPERADOR_TELAS` ou `MOVIMENTADOR`. Realiza o endereçamento em lote de várias telas de uma vez para um endereço específico, transferindo automaticamente as telas alocadas em outros endereços, validando a capacidade disponível e atualizando o status conforme o tipo do destino.
 Body:
 ```json
 {
@@ -347,6 +348,8 @@ Body:
   "telas": ["TL-ABC-1", "TL-ABC-2"]
 }
 ```
+
+As antigas rotas `PATCH /v1/telas/:codigo/status` e `PATCH /v1/telas/batch-status` não fazem mais parte da API; o status de localização é automático.
 
 ## Auditoria
 

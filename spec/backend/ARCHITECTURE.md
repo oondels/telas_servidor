@@ -34,11 +34,11 @@ Responsavel por:
 - cadastro de novas telas;
 - edicao por codigo de barras;
 - atualizacao em lote de endereco;
-- atualizacao em lote de status.
+- atualizacao automática e transacional do status de localização durante endereçamento, transferência e remoção de endereço.
 
 Arquivos principais:
 
-- dominio: `tela.ts`, `tela-status.ts`
+- dominio: `tela.ts`, `tela-status.ts`, `tela-endereco.ts`
 - contratos e DTOs: `application/contracts`, `application/dtos`
 - casos de uso: `application/use-cases`
 - persistencia: `infrastructure/typeorm-telas.repository.ts`
