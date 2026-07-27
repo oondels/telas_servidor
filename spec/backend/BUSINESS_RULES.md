@@ -25,8 +25,8 @@ Permissoes:
 - Edicao e reposicao usam o codigo de barras como identificador publico.
 - Reposicao mantem a mesma tela/codigo, exige `motivo` e registra evento `TELA_REPOSTA`.
 - Desabilitacao e uma alteracao de status para `DESABILITADA`.
-- Enderecamento registra usuario e evento de auditoria, só aceita telas sem endereço e respeita a capacidade do endereço de forma atômica.
-- Uma tela já alocada não pode ser transferida diretamente para outro endereço. Ela deve ser liberada antes do novo endereçamento.
+- Enderecamento registra usuario e evento de auditoria e respeita a capacidade do endereço de forma atômica.
+- Uma tela já alocada pode ser transferida diretamente para outro endereço. A transferência libera o endereço anterior automaticamente, ocupa uma vaga no destino e registra os endereços anterior e novo na auditoria.
 - A limpeza de endereço preserva o cadastro do endereço e das telas, remove o endereço físico de todas as telas alocadas e registra auditoria individual.
 - O código de barras identifica uma única tela física e não pode ser duplicado.
 - `ADMIN` e `MOVIMENTADOR` podem remover o endereço de uma tela sem excluir seu cadastro; a tela pode ser endereçada novamente depois.

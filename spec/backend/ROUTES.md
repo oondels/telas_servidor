@@ -117,7 +117,7 @@ Body:
 }
 ```
 
-A tela precisa estar sem endereço; não é permitida transferência direta entre endereços.
+Se a tela já estiver alocada em outro endereço, ela será transferida automaticamente para o novo destino, respeitando a capacidade disponível.
 
 ### `PATCH /v1/telas/:codigo/status`
 
@@ -339,7 +339,7 @@ Body:
 Requer `ADMIN`. Remove um endereço se não houver nenhuma tela associada a ele.
 
 ### `PATCH /v1/telas/batch-endereco`
-Requer `ADMIN`, `OPERADOR_TELAS` ou `MOVIMENTADOR`. Realiza o endereçamento em lote de várias telas de uma vez para um endereço específico, validando a capacidade disponível de vagas.
+Requer `ADMIN`, `OPERADOR_TELAS` ou `MOVIMENTADOR`. Realiza o endereçamento em lote de várias telas de uma vez para um endereço específico, transferindo automaticamente as telas alocadas em outros endereços e validando a capacidade disponível no destino.
 Body:
 ```json
 {

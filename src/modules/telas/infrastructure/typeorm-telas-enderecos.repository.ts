@@ -167,21 +167,9 @@ export class TypeOrmTelasEnderecosRepository implements ITelasEnderecosRepositor
         throw new AppError(404, "TELA_NAO_ENCONTRADA", `A tela com código ${missing} não foi encontrada.`);
       }
 
-      const alreadyAllocated = codes
-        .map((code) => telasPorCodigo.get(code)!)
-        .find((tela) => tela.endereco && tela.endereco !== address.address);
-      if (alreadyAllocated) {
-        throw new AppError(
-          409,
-          "TELA_JA_ENDERECADA",
-          `A tela ${alreadyAllocated.codbarrastela} já está alocada no endereço ${alreadyAllocated.endereco}. Libere-a antes de reendereçar.`,
-          { codbarrastela: alreadyAllocated.codbarrastela, enderecoAtual: alreadyAllocated.endereco },
-        );
-      }
-
       const telasParaAlocar = codes
         .map((code) => telasPorCodigo.get(code)!)
-        .filter((tela) => !tela.endereco);
+        .filter((tela) => tela.endereco !== address.address);
       const occupied = await telasRepository.count({ where: { endereco: address.address } });
       const available = address.vagas - occupied;
       if (telasParaAlocar.length > available) {
