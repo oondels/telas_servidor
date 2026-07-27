@@ -8,6 +8,15 @@ export class TelaEnderecoOrmEntity {
   @Column({ type: "varchar", length: 50, unique: true })
   address!: string;
 
+  @Column({ type: "varchar", length: 30, default: "INVENTARIO" })
+  type!: string;
+
+  @Column({ type: "jsonb", default: () => "'{}'::jsonb" })
+  metadata!: Record<string, string | number | boolean | null>;
+
+  @Column({ type: "boolean", default: true })
+  active!: boolean;
+
   @Column({ type: "integer" })
   vagas!: number;
 
