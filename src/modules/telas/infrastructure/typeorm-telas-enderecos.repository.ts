@@ -8,6 +8,51 @@ import { ITelasEnderecosRepository } from "../application/contracts/telas-endere
 import { CreateTelaEnderecoInput } from "../application/dtos/tela-endereco.dto.js";
 import { TelaEndereco } from "../domain/tela-endereco.js";
 
+type PersistenceDriverError = {
+  code?: unknown;
+  column?: unknown;
+  constraint?: unknown;
+};
+
+const getPersistenceDriverError = (error: unknown): PersistenceDriverError => {
+  if (!error || typeof error !== "object") return {};
+
+  const candidate = error as { driverError?: unknown };
+  if (candidate.driverError && typeof candidate.driverError === "object") {
+    return candidate.driverError as PersistenceDriverError;
+  }
+
+  return error as PersistenceDriverError;
+};
+
+const mapCreatePersistenceError = (error: unknown): AppError | null => {
+  const driverError = getPersistenceDriverError(error);
+  const code = String(driverError.code ?? "");
+  const constraint = String(driverError.constraint ?? "").toLowerCase();
+
+  if (code === "23505" && (constraint.includes("address") || constraint.includes("barcode"))) {
+    return new AppError(409, "ENDERECO_DUPLICADO", "O endereço informado já está cadastrado.");
+  }
+
+  if (code === "23505" && constraint.includes("pkey")) {
+    return new AppError(
+      500,
+      "SEQUENCIA_ENDERECO_INVALIDA",
+      "Não foi possível gerar o identificador do endereço. Sincronize a sequência do cadastro e tente novamente.",
+    );
+  }
+
+  if (code === "23502") {
+    return new AppError(400, "DADOS_ENDERECO_INCOMPLETOS", "Os dados obrigatórios do endereço não foram informados.");
+  }
+
+  if (code === "22001") {
+    return new AppError(400, "DADOS_ENDERECO_LONGOS", "Os dados do endereço excedem o tamanho permitido.");
+  }
+
+  return null;
+};
+
 const mapEnderecoEntity = (entity: TelaEnderecoOrmEntity): TelaEndereco => ({
   id: Number(entity.id),
   address: entity.address,
@@ -54,8 +99,14 @@ export class TypeOrmTelasEnderecosRepository implements ITelasEnderecosRepositor
       created_ad: new Date(),
     });
 
-    const saved = await repository.save(entity);
-    return mapEnderecoEntity(saved);
+    try {
+      const saved = await repository.save(entity);
+      return mapEnderecoEntity(saved);
+    } catch (error) {
+      const mappedError = mapCreatePersistenceError(error);
+      if (mappedError) throw mappedError;
+      throw error;
+    }
   }
 
   async findByBarcode(barcode: string): Promise<TelaEndereco | null> {
