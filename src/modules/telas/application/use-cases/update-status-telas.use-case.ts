@@ -1,31 +1,16 @@
 import { AppError } from "../../../../shared/domain/errors/app-error.js";
-import { splitSlashValues } from "../../../../shared/utils/parsers.js";
-import { normalizeTelaStatus } from "../../domain/tela-status.js";
 import { ITelasRepository } from "../contracts/telas.repository.js";
 
 export class UpdateStatusTelasUseCase {
-  constructor(private readonly telasRepository: ITelasRepository) {}
+  constructor(private readonly telasRepository: ITelasRepository) {
+    void this.telasRepository;
+  }
 
-  async execute(telasRaw: unknown, statusRaw: unknown, usuario: string) {
-    if (!usuario) {
-      throw new AppError(400, "USUARIO_OBRIGATORIO", "Usuário autenticado não informado");
-    }
-
-    const rawTelas = Array.isArray(telasRaw)
-      ? telasRaw.flatMap((item) => splitSlashValues(item))
-      : splitSlashValues(telasRaw);
-    const telas = [...new Set(rawTelas.map((item) => item.toUpperCase()))];
-    if (!telas.length) {
-      throw new AppError(400, "TELAS_OBRIGATORIAS", "Informe pelo menos uma tela para atualizar status");
-    }
-
-    const status = normalizeTelaStatus(statusRaw);
-    const atualizadas = await this.telasRepository.updateStatusBatch({
-      telas,
-      status,
-      usuario,
-    });
-
-    return { atualizadas, status };
+  async execute(_telasRaw: unknown, _statusRaw: unknown, _usuario: string): Promise<never> {
+    throw new AppError(
+      410,
+      "STATUS_CONTROLADO_POR_ENDERECO",
+      "A alteração manual de status foi desabilitada. O status da tela agora é definido automaticamente pelo tipo de endereço.",
+    );
   }
 }
