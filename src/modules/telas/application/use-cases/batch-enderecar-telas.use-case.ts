@@ -10,7 +10,7 @@ export interface BatchEnderecarTelasInput {
 export class BatchEnderecarTelasUseCase {
   constructor(private readonly repository: ITelasEnderecosRepository) {}
 
-  async execute(input: BatchEnderecarTelasInput): Promise<{ atualizadas: number }> {
+  async execute(input: BatchEnderecarTelasInput) {
     const { barcodeEndereco, codigosTelas, usuario } = input;
 
     if (!usuario) {
@@ -31,8 +31,13 @@ export class BatchEnderecarTelasUseCase {
       throw new AppError(400, "TELAS_REPETIDAS", "Uma mesma tela não pode ser endereçada mais de uma vez no lote.");
     }
 
-    const updatedCount = await this.repository.allocateTelas(barcodeEndereco, normalizedCodigosTelas, usuario);
+    const result = await this.repository.allocateTelas(barcodeEndereco, normalizedCodigosTelas, usuario);
 
-    return { atualizadas: updatedCount };
+    return {
+      atualizadas: result.updatedCount,
+      destino: result.destination,
+      transferencias: result.transfers,
+      jaNoDestino: result.alreadyAtDestination,
+    };
   }
 }
