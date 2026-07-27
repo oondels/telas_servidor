@@ -14,6 +14,10 @@ export class CreateTelaEnderecoUseCase {
     let address = String(input.address || "").trim();
     const vagas = Number(input.vagas);
 
+    if (isNaN(vagas) || vagas <= 0) {
+      throw new AppError(400, "VAGAS_INVALIDAS", "A quantidade de vagas deve ser maior que 0.");
+    }
+
     // Normalize numeric blocks to double digits (e.g. "1-2-1" -> "01-02-01")
     const match = address.match(/^(\d+)-(\d+)-(\d+)$/);
     if (match) {

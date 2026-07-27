@@ -317,6 +317,12 @@ Body:
 }
 ```
 
+Respostas de erro relevantes:
+
+- `400 ENDERECO_OBRIGATORIO`, `FORMATO_INVALIDO`, `VAGAS_INVALIDAS` ou `DADOS_ENDERECO_INCOMPLETOS` para dados inválidos;
+- `409 ENDERECO_DUPLICADO` quando o endereço ou seu código de barras já estiver cadastrado;
+- `500 SEQUENCIA_ENDERECO_INVALIDA` quando o banco não conseguir gerar o identificador do novo endereço.
+
 ### `GET /v1/enderecos/:barcode`
 Requer `ADMIN`, `OPERADOR_TELAS` ou `MOVIMENTADOR`. Consulta detalhes de um endereço específico pelo seu código de barras.
 
