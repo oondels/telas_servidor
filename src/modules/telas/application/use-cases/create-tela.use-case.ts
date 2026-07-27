@@ -9,6 +9,13 @@ export class CreateTelaUseCase {
     if (!usuarioCreate) {
       throw new AppError(400, "USUARIO_OBRIGATORIO", "Usuário autenticado não informado");
     }
+    if (data.status !== undefined) {
+      throw new AppError(
+        400,
+        "STATUS_GERENCIADO_AUTOMATICAMENTE",
+        "O status da tela é definido automaticamente pelo endereço.",
+      );
+    }
 
     return this.telasRepository.create({
       data,

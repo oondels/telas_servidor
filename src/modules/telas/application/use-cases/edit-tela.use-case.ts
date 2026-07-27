@@ -13,6 +13,13 @@ export class EditTelaUseCase {
     if (!codbarrastela) {
       throw new AppError(400, "CODIGO_BARRAS_OBRIGATORIO", "Código de barras não fornecido para edição");
     }
+    if (data.status !== undefined || data.endereco !== undefined) {
+      throw new AppError(
+        400,
+        "LOCALIZACAO_GERENCIADA_AUTOMATICAMENTE",
+        "Endereço e status devem ser alterados pelo fluxo de endereçamento.",
+      );
+    }
 
     const tela = await this.telasRepository.editByBarcode(codbarrastela, data, usuario);
     if (!tela) {

@@ -8,8 +8,9 @@ describe("tela status", () => {
     expect(TELA_STATUS_ALLOWED.has("RETIRADA")).toBe(true);
   });
 
-  it("normalizes invalid status to PRODUCAO for backward compatibility", () => {
+  it("normalizes invalid status to SEM_ENDERECO", () => {
     expect(normalizeTelaStatus("desabilitada")).toBe("DESABILITADA");
-    expect(normalizeTelaStatus("inexistente")).toBe("PRODUCAO");
+    expect(normalizeTelaStatus("inexistente")).toBe("SEM_ENDERECO");
+    expect(TELA_STATUS_ALLOWED.has("SEM_ENDERECO")).toBe(true);
   });
 });

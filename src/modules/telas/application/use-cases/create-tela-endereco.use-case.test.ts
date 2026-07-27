@@ -11,7 +11,13 @@ describe("CreateTelaEnderecoUseCase", () => {
     await expect(useCase.execute({ address: "04-17-04", vagas: 23 }, "OPERADOR"))
       .resolves.toMatchObject({ address: "04-17-04", vagas: 23 });
 
-    expect(repository.create).toHaveBeenCalledWith({ address: "04-17-04", vagas: 23 }, "OPERADOR");
+    expect(repository.create).toHaveBeenCalledWith({
+      tipo: "INVENTARIO",
+      address: "04-17-04",
+      nome: undefined,
+      numero: undefined,
+      vagas: 23,
+    }, "OPERADOR");
   });
 
   it("normalizes numeric address blocks to two digits", async () => {
@@ -20,7 +26,28 @@ describe("CreateTelaEnderecoUseCase", () => {
 
     await useCase.execute({ address: "1-2-1", vagas: 5 }, "OPERADOR");
 
-    expect(repository.create).toHaveBeenCalledWith({ address: "01-02-01", vagas: 5 }, "OPERADOR");
+    expect(repository.create).toHaveBeenCalledWith({
+      tipo: "INVENTARIO",
+      address: "01-02-01",
+      nome: undefined,
+      numero: undefined,
+      vagas: 5,
+    }, "OPERADOR");
+  });
+
+  it("creates a production address with a normalized number", async () => {
+    const repository = { create: vi.fn().mockResolvedValue({ address: "PROD-01" }) };
+    const useCase = new CreateTelaEnderecoUseCase(repository as never);
+
+    await useCase.execute({ tipo: "PRODUCAO", nome: "PROD", numero: 1, vagas: 8 }, "OPERADOR");
+
+    expect(repository.create).toHaveBeenCalledWith({
+      tipo: "PRODUCAO",
+      address: "PROD-01",
+      nome: "PROD",
+      numero: 1,
+      vagas: 8,
+    }, "OPERADOR");
   });
 
   it("rejects invalid addresses and capacities before persistence", async () => {
@@ -31,6 +58,8 @@ describe("CreateTelaEnderecoUseCase", () => {
       .rejects.toMatchObject({ code: "FORMATO_INVALIDO" });
     await expect(useCase.execute({ address: "04-17-04", vagas: 0 }, "OPERADOR"))
       .rejects.toMatchObject({ code: "VAGAS_INVALIDAS" });
+    await expect(useCase.execute({ tipo: "PRODUCAO", numero: 0, vagas: 10 }, "OPERADOR"))
+      .rejects.toMatchObject({ code: "NUMERO_PRODUCAO_INVALIDO" });
 
     expect(repository.create).not.toHaveBeenCalled();
   });

@@ -6,7 +6,8 @@ import { AppError } from "../../../shared/domain/errors/app-error.js";
 import { toBahiaSqlDateTime } from "../../../shared/utils/date.js";
 import { ITelasEnderecosRepository } from "../application/contracts/telas-enderecos.repository.js";
 import { CreateTelaEnderecoInput } from "../application/dtos/tela-endereco.dto.js";
-import { TelaEndereco } from "../domain/tela-endereco.js";
+import { TELA_ENDERECO_TIPO, TelaEndereco, TelaEnderecoTipo } from "../domain/tela-endereco.js";
+import { TELA_STATUS } from "../domain/tela-status.js";
 
 type PersistenceDriverError = {
   code?: unknown;
@@ -57,6 +58,9 @@ const mapEnderecoEntity = (entity: TelaEnderecoOrmEntity): TelaEndereco => ({
   id: Number(entity.id),
   address: entity.address,
   vagas: entity.vagas,
+  tipo: entity.tipo as TelaEnderecoTipo,
+  nome: entity.nome,
+  numero: entity.numero,
   barcode: entity.barcode,
   usercreate: entity.usercreate,
   user_edit: entity.user_edit,
@@ -74,6 +78,9 @@ export class TypeOrmTelasEnderecosRepository implements ITelasEnderecosRepositor
   async create(data: CreateTelaEnderecoInput, user: string): Promise<TelaEndereco> {
     const address = String(data.address || "").trim().toUpperCase();
     const vagas = Number(data.vagas);
+    const tipo = String(data.tipo || TELA_ENDERECO_TIPO.INVENTARIO).trim().toUpperCase() as TelaEnderecoTipo;
+    const nome = tipo === TELA_ENDERECO_TIPO.PRODUCAO ? String(data.nome || "").trim().toUpperCase() : null;
+    const numero = tipo === TELA_ENDERECO_TIPO.PRODUCAO ? Number(data.numero) : null;
 
     if (!address) {
       throw new AppError(400, "ENDERECO_OBRIGATORIO", "O endereço não pode ser vazio.");
@@ -94,6 +101,9 @@ export class TypeOrmTelasEnderecosRepository implements ITelasEnderecosRepositor
     const entity = repository.create({
       address,
       vagas,
+      tipo,
+      nome,
+      numero,
       barcode,
       usercreate: user,
       created_ad: new Date(),
@@ -181,10 +191,19 @@ export class TypeOrmTelasEnderecosRepository implements ITelasEnderecosRepositor
       }
 
       const now = new Date(toBahiaSqlDateTime());
+      const novoStatus = address.tipo === TELA_ENDERECO_TIPO.PRODUCAO
+        ? TELA_STATUS.PRODUCAO
+        : TELA_STATUS.ARMAZENADA;
       for (const tela of telasParaAlocar) {
-        const beforeState = { endereco: tela.endereco, usuarioendereco: tela.usuarioendereco };
+        const beforeState = {
+          endereco: tela.endereco,
+          usuarioendereco: tela.usuarioendereco,
+          status: tela.status,
+        };
         tela.endereco = address.address;
         tela.usuarioendereco = usuario;
+        tela.status = novoStatus;
+        tela.usuariostatus = usuario;
         tela.usuarioaltera = usuario;
         tela.updatedate = now;
         await telasRepository.save(tela);
@@ -194,7 +213,11 @@ export class TypeOrmTelasEnderecosRepository implements ITelasEnderecosRepositor
           action: "ENDERECO_ATUALIZADO",
           actorUsuario: usuario,
           beforeState,
-          afterState: { endereco: address.address, usuarioendereco: usuario },
+          afterState: {
+            endereco: address.address,
+            usuarioendereco: usuario,
+            status: novoStatus,
+          },
         }, manager);
       }
 
@@ -221,9 +244,15 @@ export class TypeOrmTelasEnderecosRepository implements ITelasEnderecosRepositor
       const now = new Date(toBahiaSqlDateTime());
 
       for (const tela of telas) {
-        const beforeState = { endereco: tela.endereco, usuarioendereco: tela.usuarioendereco };
+        const beforeState = {
+          endereco: tela.endereco,
+          usuarioendereco: tela.usuarioendereco,
+          status: tela.status,
+        };
         tela.endereco = null;
         tela.usuarioendereco = usuario;
+        tela.status = TELA_STATUS.SEM_ENDERECO;
+        tela.usuariostatus = usuario;
         tela.usuarioaltera = usuario;
         tela.updatedate = now;
         await telasRepository.save(tela);
@@ -233,7 +262,11 @@ export class TypeOrmTelasEnderecosRepository implements ITelasEnderecosRepositor
           action: "ENDERECO_REMOVIDO",
           actorUsuario: usuario,
           beforeState,
-          afterState: { endereco: null, usuarioendereco: usuario },
+          afterState: {
+            endereco: null,
+            usuarioendereco: usuario,
+            status: TELA_STATUS.SEM_ENDERECO,
+          },
           metadata: { motivo: "LIMPEZA_ENDERECO", endereco: address.address },
         }, manager);
       }

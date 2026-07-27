@@ -30,6 +30,13 @@ export class CreateTelasBatchUseCase {
     if (new Set(codigos).size !== codigos.length) {
       throw new AppError(400, "CODIGOS_BARRAS_REPETIDOS", "Os códigos de barras do lote devem ser diferentes");
     }
+    if (telas.some((tela) => tela.status !== undefined)) {
+      throw new AppError(
+        400,
+        "STATUS_GERENCIADO_AUTOMATICAMENTE",
+        "O status das telas é definido automaticamente pelo endereço.",
+      );
+    }
 
     return this.telasRepository.createMany(
       telas.map((tela) => ({

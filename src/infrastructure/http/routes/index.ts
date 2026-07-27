@@ -16,7 +16,6 @@ import { CreateTelaUseCase } from "../../../modules/telas/application/use-cases/
 import { CreateTelasBatchUseCase } from "../../../modules/telas/application/use-cases/create-telas-batch.use-case.js";
 import { EditTelaUseCase } from "../../../modules/telas/application/use-cases/edit-tela.use-case.js";
 import { SearchTelasUseCase } from "../../../modules/telas/application/use-cases/search-telas.use-case.js";
-import { UpdateStatusTelasUseCase } from "../../../modules/telas/application/use-cases/update-status-telas.use-case.js";
 import { RemoveTelaEnderecoUseCase } from "../../../modules/telas/application/use-cases/remove-tela-endereco.use-case.js";
 import { DeleteTelaUseCase } from "../../../modules/telas/application/use-cases/delete-tela.use-case.js";
 import { CreateTelaEnderecoUseCase } from "../../../modules/telas/application/use-cases/create-tela-endereco.use-case.js";
@@ -62,7 +61,6 @@ export const registerRoutes = (app: Express) => {
   const searchTelasUseCase = new SearchTelasUseCase(telasRepository);
   const createTelaUseCase = new CreateTelaUseCase(telasRepository);
   const createTelasBatchUseCase = new CreateTelasBatchUseCase(telasRepository);
-  const updateStatusTelasUseCase = new UpdateStatusTelasUseCase(telasRepository);
   const removeTelaEnderecoUseCase = new RemoveTelaEnderecoUseCase(telasRepository);
   const deleteTelaUseCase = new DeleteTelaUseCase(telasRepository);
   const editTelaUseCase = new EditTelaUseCase(telasRepository);
@@ -219,26 +217,6 @@ export const registerRoutes = (app: Express) => {
     }),
   );
 
-  v1.patch(
-    "/telas/batch-status",
-    requireRoles(USER_ROLES.ADMIN, USER_ROLES.OPERADOR_TELAS),
-    asyncHandler(async (req, res) => {
-      const codigos = Array.isArray(req.body?.telas)
-        ? [...new Set(req.body.telas.map((codigo: unknown) => String(codigo ?? "").trim().toUpperCase()).filter(Boolean))]
-        : [];
-      if (codigos.length < 2) {
-        throw new AppError(400, "TELAS_INSUFICIENTES", "Selecione pelo menos duas telas para uma ação em lote");
-      }
-
-      const result = await updateStatusTelasUseCase.execute(
-        codigos,
-        req.body?.status,
-        getActorUsuario(req),
-      );
-      return sendSuccess(res, 200, { message: "success", ...result });
-    }),
-  );
-
   v1.post(
     "/telas/batch-remover-endereco",
     requireRoles(USER_ROLES.ADMIN, USER_ROLES.MOVIMENTADOR),
@@ -284,19 +262,6 @@ export const registerRoutes = (app: Express) => {
         codigosTelas: [String(req.params.codigo).trim().toUpperCase()],
         usuario: getActorUsuario(req),
       });
-      return sendSuccess(res, 200, { message: "success", ...result });
-    }),
-  );
-
-  v1.patch(
-    "/telas/:codigo/status",
-    requireRoles(USER_ROLES.ADMIN, USER_ROLES.OPERADOR_TELAS),
-    asyncHandler(async (req, res) => {
-      const result = await updateStatusTelasUseCase.execute(
-        String(req.params.codigo).trim().toUpperCase(),
-        req.body?.status,
-        getActorUsuario(req),
-      );
       return sendSuccess(res, 200, { message: "success", ...result });
     }),
   );

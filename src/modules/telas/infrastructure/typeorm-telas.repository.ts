@@ -6,7 +6,7 @@ import { toBahiaSqlDateTime, normalizeDate } from "../../../shared/utils/date.js
 import { normalizePecas } from "../../../shared/utils/pecas.js";
 import { parseNullableNumber } from "../../../shared/utils/parsers.js";
 import { Tela } from "../domain/tela.js";
-import { normalizeTelaStatus } from "../domain/tela-status.js";
+import { normalizeTelaStatus, TELA_STATUS } from "../domain/tela-status.js";
 import { ITelasRepository } from "../application/contracts/telas.repository.js";
 import {
   BatchUpdatePosicaoInput,
@@ -317,7 +317,8 @@ export class TypeOrmTelasRepository implements ITelasRepository {
       }
 
       const before = mapTelaEntity(entity);
-      this.applyTelaPatch(entity, { ...data, status: data.status ?? "EM_REPOSICAO" }, usuario);
+      const { status: _status, endereco: _endereco, ...replacementData } = data as ReplaceTelaInput & { endereco?: string | null };
+      this.applyTelaPatch(entity, { ...replacementData, status: TELA_STATUS.EM_REPOSICAO }, usuario);
       const saved = await repository.save(entity);
       const after = mapTelaEntity(saved);
 
@@ -350,6 +351,8 @@ export class TypeOrmTelasRepository implements ITelasRepository {
       const before = mapTelaEntity(entity);
       entity.endereco = null;
       entity.usuarioendereco = usuario;
+      entity.status = TELA_STATUS.SEM_ENDERECO;
+      entity.usuariostatus = usuario;
       entity.usuarioaltera = usuario;
       entity.updatedate = new Date(toBahiaSqlDateTime());
 
@@ -401,6 +404,8 @@ export class TypeOrmTelasRepository implements ITelasRepository {
         const before = mapTelaEntity(entity);
         entity.endereco = null;
         entity.usuarioendereco = usuario;
+        entity.status = TELA_STATUS.SEM_ENDERECO;
+        entity.usuariostatus = usuario;
         entity.usuarioaltera = usuario;
         entity.updatedate = updateDate;
 
@@ -705,7 +710,7 @@ export class TypeOrmTelasRepository implements ITelasRepository {
         ? String(command.data.tamanhoEtiqueta ?? command.data.tamanho_etiqueta).trim().toUpperCase()
         : null,
       codbarrastela,
-      status: normalizeTelaStatus(command.data.status),
+      status: TELA_STATUS.SEM_ENDERECO,
       usuariostatus: usuario,
       usuarioaltera: usuario,
       sku: command.data.sku ? String(command.data.sku).trim() : null,
@@ -737,7 +742,6 @@ export class TypeOrmTelasRepository implements ITelasRepository {
     entity.pecas = data.pecas !== undefined || data.components !== undefined
       ? JSON.stringify(normalizePecas(data.pecas ?? data.components))
       : entity.pecas;
-    entity.status = data.status !== undefined ? normalizeTelaStatus(data.status) : entity.status;
     entity.endereco = data.endereco !== undefined ? String(data.endereco || "").trim().toUpperCase() || null : entity.endereco;
 
     const tamanhoEtiquetaRaw = data.tamanhoEtiqueta ?? data.tamanho_etiqueta;

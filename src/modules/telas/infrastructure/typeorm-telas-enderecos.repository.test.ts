@@ -88,11 +88,12 @@ describe("TypeOrmTelasEnderecosRepository.allocateTelas", () => {
       codbarrastela: "TL-001",
       endereco: "01-01-01",
       usuarioendereco: "USUARIO_ANTERIOR",
+      status: "ARMAZENADA",
     };
     const addressQuery = {
       setLock: vi.fn().mockReturnThis(),
       where: vi.fn().mockReturnThis(),
-      getOne: vi.fn().mockResolvedValue({ address: "02-02-02", vagas: 2 }),
+      getOne: vi.fn().mockResolvedValue({ address: "PROD-01", vagas: 2, tipo: "PRODUCAO" }),
     };
     const telaQuery = {
       setLock: vi.fn().mockReturnThis(),
@@ -121,17 +122,40 @@ describe("TypeOrmTelasEnderecosRepository.allocateTelas", () => {
     };
     const repository = new TypeOrmTelasEnderecosRepository(dataSource as never);
 
-    await expect(repository.allocateTelas("02-02-02", ["TL-001"], "MOVIMENTADOR")).resolves.toBe(1);
+    await expect(repository.allocateTelas("PROD-01", ["TL-001"], "MOVIMENTADOR")).resolves.toBe(1);
 
     expect(telasRepository.save).toHaveBeenCalledWith(expect.objectContaining({
       codbarrastela: "TL-001",
-      endereco: "02-02-02",
+      endereco: "PROD-01",
       usuarioendereco: "MOVIMENTADOR",
+      status: "PRODUCAO",
     }));
     expect(auditRepository.create).toHaveBeenCalledWith(expect.objectContaining({
       action: "ENDERECO_ATUALIZADO",
-      before_state: { endereco: "01-01-01", usuarioendereco: "USUARIO_ANTERIOR" },
-      after_state: { endereco: "02-02-02", usuarioendereco: "MOVIMENTADOR" },
+      before_state: {
+        endereco: "01-01-01",
+        usuarioendereco: "USUARIO_ANTERIOR",
+        status: "ARMAZENADA",
+      },
+      after_state: {
+        endereco: "PROD-01",
+        usuarioendereco: "MOVIMENTADOR",
+        status: "PRODUCAO",
+      },
+    }));
+
+    addressQuery.getOne.mockResolvedValueOnce({ address: "02-02-02", vagas: 2, tipo: "INVENTARIO" });
+
+    await expect(repository.allocateTelas("02-02-02", ["TL-001"], "MOVIMENTADOR")).resolves.toBe(1);
+
+    expect(telasRepository.save).toHaveBeenLastCalledWith(expect.objectContaining({
+      codbarrastela: "TL-001",
+      endereco: "02-02-02",
+      status: "ARMAZENADA",
+    }));
+    expect(auditRepository.create).toHaveBeenLastCalledWith(expect.objectContaining({
+      before_state: expect.objectContaining({ endereco: "PROD-01", status: "PRODUCAO" }),
+      after_state: expect.objectContaining({ endereco: "02-02-02", status: "ARMAZENADA" }),
     }));
   });
 });

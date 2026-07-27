@@ -11,6 +11,15 @@ export class TelaEnderecoOrmEntity {
   @Column({ type: "integer" })
   vagas!: number;
 
+  @Column({ type: "varchar", length: 20, default: "INVENTARIO" })
+  tipo!: string;
+
+  @Column({ type: "varchar", length: 30, nullable: true })
+  nome!: string | null;
+
+  @Column({ type: "integer", nullable: true })
+  numero!: number | null;
+
   @Column({ type: "varchar", length: 40, unique: true })
   barcode!: string;
 
