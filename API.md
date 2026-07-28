@@ -433,6 +433,18 @@ curl -X PATCH http://localhost:3000/v1/config/auto-cadastro-telas \
   }'
 ```
 
+### Consultar capacidade máxima dos endereços
+`GET /v1/config/capacidade-maxima-endereco`
+
+Retorna o número máximo de vagas permitido no cadastro e na edição de endereços. O padrão é `100`.
+
+### Atualizar capacidade máxima dos endereços
+`PATCH /v1/config/capacidade-maxima-endereco`
+
+> Requer usuário ativo com papel `ADMIN` do setor `AUTOMACAO`.
+
+O campo `maxCapacity` deve ser um número inteiro entre `1` e `10000`.
+
 ---
 
 ## Testes e Debug
