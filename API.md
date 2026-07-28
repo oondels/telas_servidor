@@ -396,7 +396,7 @@ curl http://localhost:3000/v1/config/telas-sem-movimentacao \
 ### Atualizar limite de telas sem movimentação
 `PATCH /v1/config/telas-sem-movimentacao`
 
-> Requer `ADMIN`.
+> Requer usuário ativo com papel `ADMIN` do setor `AUTOMACAO`.
 
 ```
 curl -X PATCH http://localhost:3000/v1/config/telas-sem-movimentacao \
@@ -422,7 +422,7 @@ curl http://localhost:3000/v1/config/auto-cadastro-telas \
 ### Atualizar flag de auto-cadastro em solicitações
 `PATCH /v1/config/auto-cadastro-telas`
 
-> Requer `ADMIN`.
+> Requer usuário ativo com papel `ADMIN` do setor `AUTOMACAO`.
 
 ```
 curl -X PATCH http://localhost:3000/v1/config/auto-cadastro-telas \
@@ -498,7 +498,7 @@ curl -X POST http://localhost:3000/v1/telas/match \
 ### Consultar histórico de eventos
 `GET /v1/audit-events`
 
-> Requer `ADMIN`.
+> Requer usuário ativo com papel `ADMIN` do setor `AUTOMACAO`.
 
 Query params: `entityType`, `entityId`, `action`, `actorMatricula`, `page`, `itemsPerPage`.
 

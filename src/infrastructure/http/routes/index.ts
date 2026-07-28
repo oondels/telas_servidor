@@ -1,4 +1,4 @@
-import { Express, Router } from "express";
+import { Express, NextFunction, Request, Response, Router } from "express";
 import { AppDataSource } from "../../../config/database.js";
 import { TypeOrmAuditEventsRepository } from "../../../modules/audit/infrastructure/typeorm-audit-events.repository.js";
 import { TypeOrmAppConfigRepository } from "../../../modules/config/infrastructure/typeorm-app-config.repository.js";
@@ -48,6 +48,21 @@ const parseBooleanQuery = (value: unknown): boolean | null => {
 const getActorUsuario = (req: Parameters<typeof getAuthenticatedUser>[0]) => {
   const jwtUser = getAuthenticatedUser(req);
   return String(jwtUser.usuario ?? jwtUser.matricula ?? "").trim().toUpperCase();
+};
+
+const requireAutomationAdmin = (req: Request, _res: Response, next: NextFunction) => {
+  const user = getActiveAppUser(req);
+  const setor = String(user.setor ?? "").trim().toUpperCase();
+
+  if (setor !== "AUTOMACAO" || user.role !== USER_ROLES.ADMIN) {
+    throw new AppError(
+      403,
+      "PERMISSAO_INSUFICIENTE",
+      "Acesso permitido somente para ADMIN do setor AUTOMACAO",
+    );
+  }
+
+  next();
 };
 
 export const registerRoutes = (app: Express) => {
@@ -500,33 +515,33 @@ export const registerRoutes = (app: Express) => {
     }),
   );
 
-  v1.get("/config/telas-sem-movimentacao", asyncHandler(async (_req, res) => {
+  v1.get("/config/telas-sem-movimentacao", requireAutomationAdmin, asyncHandler(async (_req, res) => {
     return sendSuccess(res, 200, { config: await configRepository.getInactiveTelasConfig() });
   }));
 
   v1.patch(
     "/config/telas-sem-movimentacao",
-    requireRoles(USER_ROLES.ADMIN),
+    requireAutomationAdmin,
     asyncHandler(async (req, res) => {
       const config = await configRepository.updateInactiveTelasConfig(Number(req.body?.days), getAuthenticatedMatricula(req));
       return sendSuccess(res, 200, { message: "success", config });
     }),
   );
 
-  v1.get("/config/auto-cadastro-telas", asyncHandler(async (_req, res) => {
+  v1.get("/config/auto-cadastro-telas", requireAutomationAdmin, asyncHandler(async (_req, res) => {
     return sendSuccess(res, 200, { config: await configRepository.getAutoCadastroConfig() });
   }));
 
   v1.patch(
     "/config/auto-cadastro-telas",
-    requireRoles(USER_ROLES.ADMIN),
+    requireAutomationAdmin,
     asyncHandler(async (req, res) => {
       const config = await configRepository.updateAutoCadastroConfig(Boolean(req.body?.enabled), getAuthenticatedMatricula(req));
       return sendSuccess(res, 200, { message: "success", config });
     }),
   );
 
-  v1.get("/audit-events", requireRoles(USER_ROLES.ADMIN), asyncHandler(async (req, res) => {
+  v1.get("/audit-events", requireAutomationAdmin, asyncHandler(async (req, res) => {
     const result = await auditRepository.search({
       entityType: req.query.entityType as string | undefined,
       entityId: req.query.entityId as string | undefined,
