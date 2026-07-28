@@ -351,7 +351,12 @@ export const registerRoutes = (app: Express) => {
     "/enderecos",
     requireRoles(USER_ROLES.ADMIN, USER_ROLES.OPERADOR_TELAS),
     asyncHandler(async (req, res) => {
-      const result = await createTelaEnderecoUseCase.execute(req.body ?? {}, getActorUsuario(req));
+      const capacityConfig = await configRepository.getAddressMaxCapacityConfig();
+      const result = await createTelaEnderecoUseCase.execute(
+        req.body ?? {},
+        getActorUsuario(req),
+        capacityConfig.maxCapacity,
+      );
       return sendSuccess(res, 201, { message: "success", address: result });
     }),
   );
@@ -379,7 +384,13 @@ export const registerRoutes = (app: Express) => {
     asyncHandler(async (req, res) => {
       const id = Number(req.params.id);
       const vagas = Number(req.body?.vagas);
-      const result = await telasEnderecosRepository.updateVagas(id, vagas, getActorUsuario(req));
+      const capacityConfig = await configRepository.getAddressMaxCapacityConfig();
+      const result = await telasEnderecosRepository.updateVagas(
+        id,
+        vagas,
+        getActorUsuario(req),
+        capacityConfig.maxCapacity,
+      );
       return sendSuccess(res, 200, { message: "success", address: result });
     }),
   );
@@ -537,6 +548,24 @@ export const registerRoutes = (app: Express) => {
     requireAutomationAdmin,
     asyncHandler(async (req, res) => {
       const config = await configRepository.updateAutoCadastroConfig(Boolean(req.body?.enabled), getAuthenticatedMatricula(req));
+      return sendSuccess(res, 200, { message: "success", config });
+    }),
+  );
+
+  v1.get("/config/capacidade-maxima-endereco", asyncHandler(async (_req, res) => {
+    return sendSuccess(res, 200, {
+      config: await configRepository.getAddressMaxCapacityConfig(),
+    });
+  }));
+
+  v1.patch(
+    "/config/capacidade-maxima-endereco",
+    requireAutomationAdmin,
+    asyncHandler(async (req, res) => {
+      const config = await configRepository.updateAddressMaxCapacityConfig(
+        Number(req.body?.maxCapacity),
+        getAuthenticatedMatricula(req),
+      );
       return sendSuccess(res, 200, { message: "success", config });
     }),
   );

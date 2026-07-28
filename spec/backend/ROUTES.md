@@ -277,6 +277,8 @@ Body:
 - `PATCH /v1/config/telas-sem-movimentacao`: requer `ADMIN`, atualiza `days`.
 - `GET /v1/config/auto-cadastro-telas`: consulta status do auto-cadastro (booleano).
 - `PATCH /v1/config/auto-cadastro-telas`: requer `ADMIN`, atualiza `enabled` (booleano).
+- `GET /v1/config/capacidade-maxima-endereco`: consulta o máximo de vagas permitido por endereço. O padrão é `100`.
+- `PATCH /v1/config/capacidade-maxima-endereco`: requer `ADMIN` do setor `AUTOMACAO`, atualiza `maxCapacity` entre `1` e `10000`.
 
 ## Teste e Debug
 
@@ -319,13 +321,17 @@ Body para produção:
 ```json
 {
   "tipo": "PRODUCAO",
-  "nome": "PROD",
+  "nome": "CARROSSEL",
   "numero": 1,
   "vagas": 10
 }
 ```
 
-O endereço de produção será normalizado para `PROD-01`; neste momento, `PROD` é o único nome permitido.
+O endereço de produção será normalizado para `CARROSSEL-01`. Prefixos permitidos:
+`CARROSSEL`, `SAOROQUE`, `CARROSSEL-OVAL`, `MINI-CARROSSEL` e `LINHA`.
+
+A quantidade de vagas deve ser inteira, maior que zero e não pode ultrapassar a configuração global
+`capacidade_maxima_endereco`, cujo valor padrão é `100`.
 
 Respostas de erro relevantes:
 

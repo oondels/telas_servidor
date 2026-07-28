@@ -2,13 +2,26 @@ import { AppError } from "../../../../shared/domain/errors/app-error.js";
 import { ITelasEnderecosRepository } from "../contracts/telas-enderecos.repository.js";
 import { CreateTelaEnderecoInput } from "../dtos/tela-endereco.dto.js";
 import { TELA_ENDERECO_TIPO, TelaEndereco } from "../../domain/tela-endereco.js";
+import { DEFAULT_ADDRESS_MAX_CAPACITY } from "../../../config/domain/app-config.js";
 
-const PRODUCTION_ADDRESS_NAME = "PROD";
+export const PRODUCTION_ADDRESS_NAMES = [
+  "CARROSSEL",
+  "SAOROQUE",
+  "CARROSSEL-OVAL",
+  "MINI-CARROSSEL",
+  "LINHA",
+] as const;
+
+const productionAddressNames = new Set<string>(PRODUCTION_ADDRESS_NAMES);
 
 export class CreateTelaEnderecoUseCase {
   constructor(private readonly repository: ITelasEnderecosRepository) {}
 
-  async execute(input: CreateTelaEnderecoInput, user: string): Promise<TelaEndereco> {
+  async execute(
+    input: CreateTelaEnderecoInput,
+    user: string,
+    maxCapacity = DEFAULT_ADDRESS_MAX_CAPACITY,
+  ): Promise<TelaEndereco> {
     if (!user) {
       throw new AppError(400, "USUARIO_OBRIGATORIO", "Usuário autenticado não informado.");
     }
@@ -16,16 +29,27 @@ export class CreateTelaEnderecoUseCase {
     const vagas = Number(input.vagas);
     const tipo = String(input.tipo || TELA_ENDERECO_TIPO.INVENTARIO).trim().toUpperCase();
 
-    if (isNaN(vagas) || vagas <= 0) {
-      throw new AppError(400, "VAGAS_INVALIDAS", "A quantidade de vagas deve ser maior que 0.");
+    if (!Number.isInteger(vagas) || vagas <= 0) {
+      throw new AppError(400, "VAGAS_INVALIDAS", "A quantidade de vagas deve ser um número inteiro maior que 0.");
+    }
+    if (vagas > maxCapacity) {
+      throw new AppError(
+        400,
+        "CAPACIDADE_ENDERECO_EXCEDIDA",
+        `A capacidade do endereço não pode ultrapassar ${maxCapacity} vagas.`,
+      );
     }
 
     if (tipo === TELA_ENDERECO_TIPO.PRODUCAO) {
-      const nome = String(input.nome || PRODUCTION_ADDRESS_NAME).trim().toUpperCase();
+      const nome = String(input.nome || "").trim().toUpperCase();
       const numero = Number(input.numero);
 
-      if (nome !== PRODUCTION_ADDRESS_NAME) {
-        throw new AppError(400, "NOME_PRODUCAO_INVALIDO", `O nome do endereço de produção deve ser ${PRODUCTION_ADDRESS_NAME}.`);
+      if (!productionAddressNames.has(nome)) {
+        throw new AppError(
+          400,
+          "NOME_PRODUCAO_INVALIDO",
+          `O prefixo do endereço de produção deve ser um destes: ${PRODUCTION_ADDRESS_NAMES.join(", ")}.`,
+        );
       }
       if (!Number.isInteger(numero) || numero <= 0) {
         throw new AppError(400, "NUMERO_PRODUCAO_INVALIDO", "Informe um número inteiro maior que zero para o endereço de produção.");

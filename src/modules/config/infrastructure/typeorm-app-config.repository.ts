@@ -2,9 +2,14 @@ import { DataSource } from "typeorm";
 import { AppConfigOrmEntity } from "../../../infrastructure/database/entities/app-config.entity.js";
 import { AppError } from "../../../shared/domain/errors/app-error.js";
 import { toBahiaSqlDateTime } from "../../../shared/utils/date.js";
+import {
+  ADDRESS_MAX_CAPACITY_LIMIT,
+  DEFAULT_ADDRESS_MAX_CAPACITY,
+} from "../domain/app-config.js";
 
 const INACTIVE_TELAS_KEY = "telas_sem_movimentacao";
 const AUTO_CADASTRO_KEY = "auto_cadastro_telas";
+const ADDRESS_MAX_CAPACITY_KEY = "capacidade_maxima_endereco";
 const DEFAULT_DAYS = 30;
 
 export class TypeOrmAppConfigRepository {
@@ -68,5 +73,48 @@ export class TypeOrmAppConfigRepository {
     await repository.save(next);
     return this.getAutoCadastroConfig();
   }
-}
 
+  async getAddressMaxCapacityConfig() {
+    const entity = await this.dataSource.getRepository(AppConfigOrmEntity).findOne({
+      where: { key: ADDRESS_MAX_CAPACITY_KEY },
+    });
+
+    const maxCapacity = Number(entity?.value?.maxCapacity ?? DEFAULT_ADDRESS_MAX_CAPACITY);
+    return {
+      key: ADDRESS_MAX_CAPACITY_KEY,
+      maxCapacity: Number.isInteger(maxCapacity) && maxCapacity > 0
+        ? maxCapacity
+        : DEFAULT_ADDRESS_MAX_CAPACITY,
+      updatedAt: entity?.updated_at ?? null,
+      updatedBy: entity?.updated_by !== null && entity?.updated_by !== undefined
+        ? Number(entity.updated_by)
+        : null,
+    };
+  }
+
+  async updateAddressMaxCapacityConfig(maxCapacity: number, updatedBy: number) {
+    if (
+      !Number.isInteger(maxCapacity)
+      || maxCapacity < 1
+      || maxCapacity > ADDRESS_MAX_CAPACITY_LIMIT
+    ) {
+      throw new AppError(
+        400,
+        "CAPACIDADE_MAXIMA_INVALIDA",
+        `Informe uma capacidade máxima entre 1 e ${ADDRESS_MAX_CAPACITY_LIMIT}.`,
+      );
+    }
+
+    const repository = this.dataSource.getRepository(AppConfigOrmEntity);
+    const now = new Date(toBahiaSqlDateTime());
+    const entity = await repository.findOne({ where: { key: ADDRESS_MAX_CAPACITY_KEY } });
+
+    const next = entity ?? repository.create({ key: ADDRESS_MAX_CAPACITY_KEY });
+    next.value = { maxCapacity };
+    next.updated_at = now;
+    next.updated_by = String(updatedBy);
+
+    await repository.save(next);
+    return this.getAddressMaxCapacityConfig();
+  }
+}

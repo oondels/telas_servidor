@@ -8,6 +8,7 @@ import { ITelasEnderecosRepository } from "../application/contracts/telas-endere
 import { CreateTelaEnderecoInput } from "../application/dtos/tela-endereco.dto.js";
 import { TELA_ENDERECO_TIPO, TelaEndereco, TelaEnderecoTipo } from "../domain/tela-endereco.js";
 import { TELA_STATUS } from "../domain/tela-status.js";
+import { DEFAULT_ADDRESS_MAX_CAPACITY } from "../../config/domain/app-config.js";
 
 type PersistenceDriverError = {
   code?: unknown;
@@ -275,9 +276,21 @@ export class TypeOrmTelasEnderecosRepository implements ITelasEnderecosRepositor
     });
   }
 
-  async updateVagas(id: number, vagas: number, user: string): Promise<TelaEndereco> {
-    if (isNaN(vagas) || vagas <= 0) {
-      throw new AppError(400, "VAGAS_INVALIDAS", "A quantidade de vagas deve ser maior que 0.");
+  async updateVagas(
+    id: number,
+    vagas: number,
+    user: string,
+    maxCapacity = DEFAULT_ADDRESS_MAX_CAPACITY,
+  ): Promise<TelaEndereco> {
+    if (!Number.isInteger(vagas) || vagas <= 0) {
+      throw new AppError(400, "VAGAS_INVALIDAS", "A quantidade de vagas deve ser um número inteiro maior que 0.");
+    }
+    if (vagas > maxCapacity) {
+      throw new AppError(
+        400,
+        "CAPACIDADE_ENDERECO_EXCEDIDA",
+        `A capacidade do endereço não pode ultrapassar ${maxCapacity} vagas.`,
+      );
     }
 
     return this.dataSource.transaction(async (manager) => {

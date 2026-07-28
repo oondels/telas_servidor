@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import { CreateTelaEnderecoUseCase } from "./create-tela-endereco.use-case.js";
+import {
+  CreateTelaEnderecoUseCase,
+  PRODUCTION_ADDRESS_NAMES,
+} from "./create-tela-endereco.use-case.js";
 
 describe("CreateTelaEnderecoUseCase", () => {
   it("creates a new address without changing its valid format", async () => {
@@ -35,16 +38,16 @@ describe("CreateTelaEnderecoUseCase", () => {
     }, "OPERADOR");
   });
 
-  it("creates a production address with a normalized number", async () => {
-    const repository = { create: vi.fn().mockResolvedValue({ address: "PROD-01" }) };
+  it.each(PRODUCTION_ADDRESS_NAMES)("creates a %s production address with a normalized number", async (nome) => {
+    const repository = { create: vi.fn().mockResolvedValue({ address: `${nome}-01` }) };
     const useCase = new CreateTelaEnderecoUseCase(repository as never);
 
-    await useCase.execute({ tipo: "PRODUCAO", nome: "PROD", numero: 1, vagas: 8 }, "OPERADOR");
+    await useCase.execute({ tipo: "PRODUCAO", nome, numero: 1, vagas: 8 }, "OPERADOR");
 
     expect(repository.create).toHaveBeenCalledWith({
       tipo: "PRODUCAO",
-      address: "PROD-01",
-      nome: "PROD",
+      address: `${nome}-01`,
+      nome,
       numero: 1,
       vagas: 8,
     }, "OPERADOR");
@@ -58,8 +61,12 @@ describe("CreateTelaEnderecoUseCase", () => {
       .rejects.toMatchObject({ code: "FORMATO_INVALIDO" });
     await expect(useCase.execute({ address: "04-17-04", vagas: 0 }, "OPERADOR"))
       .rejects.toMatchObject({ code: "VAGAS_INVALIDAS" });
-    await expect(useCase.execute({ tipo: "PRODUCAO", numero: 0, vagas: 10 }, "OPERADOR"))
+    await expect(useCase.execute({ tipo: "PRODUCAO", nome: "CARROSSEL", numero: 0, vagas: 10 }, "OPERADOR"))
       .rejects.toMatchObject({ code: "NUMERO_PRODUCAO_INVALIDO" });
+    await expect(useCase.execute({ tipo: "PRODUCAO", nome: "PROD", numero: 1, vagas: 10 }, "OPERADOR"))
+      .rejects.toMatchObject({ code: "NOME_PRODUCAO_INVALIDO" });
+    await expect(useCase.execute({ address: "04-17-04", vagas: 101 }, "OPERADOR", 100))
+      .rejects.toMatchObject({ code: "CAPACIDADE_ENDERECO_EXCEDIDA" });
 
     expect(repository.create).not.toHaveBeenCalled();
   });
