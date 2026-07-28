@@ -149,4 +149,29 @@ export class TypeOrmUsersRepository {
       });
     }
   }
+
+  async delete(id: string, actorMatricula: number): Promise<AppUser> {
+    const repository = this.dataSource.getRepository(AppUserOrmEntity);
+    const entity = await repository.findOne({ where: { id } });
+    if (!entity) {
+      throw new AppError(404, "USUARIO_NAO_ENCONTRADO", "Usuário não encontrado");
+    }
+
+    if (Number(entity.matricula) === actorMatricula) {
+      throw new AppError(409, "AUTOEXCLUSAO_NAO_PERMITIDA", "Não é permitido excluir o próprio usuário");
+    }
+
+    if (entity.role === USER_ROLES.ADMIN && entity.active) {
+      const activeAdmins = await repository.count({
+        where: { role: USER_ROLES.ADMIN, active: true },
+      });
+      if (activeAdmins <= 1) {
+        throw new AppError(409, "ULTIMO_ADMIN", "Não é permitido excluir o último administrador ativo");
+      }
+    }
+
+    const user = mapUser(entity);
+    await repository.remove(entity);
+    return user;
+  }
 }

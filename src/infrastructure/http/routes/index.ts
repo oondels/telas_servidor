@@ -160,6 +160,20 @@ export const registerRoutes = (app: Express) => {
     return sendSuccess(res, 200, { message: "success", user });
   }));
 
+  v1.delete("/users/:id", requireRoles(USER_ROLES.ADMIN), asyncHandler(async (req, res) => {
+    const user = await usersRepository.delete(String(req.params.id), getAuthenticatedMatricula(req));
+
+    await auditRepository.create({
+      entityType: "USUARIO",
+      entityId: String(user.matricula),
+      action: "USUARIO_EXCLUIDO",
+      actorMatricula: getAuthenticatedMatricula(req),
+      beforeState: user as unknown as Record<string, unknown>,
+    });
+
+    return sendSuccess(res, 200, { message: "success", user });
+  }));
+
   v1.get("/telas", asyncHandler(async (req, res) => {
     const result = await searchTelasUseCase.execute({
       letra: req.query.letra as string | undefined,
@@ -219,7 +233,7 @@ export const registerRoutes = (app: Express) => {
 
   v1.post(
     "/telas/batch-remover-endereco",
-    requireRoles(USER_ROLES.ADMIN, USER_ROLES.MOVIMENTADOR),
+    requireRoles(USER_ROLES.ADMIN, USER_ROLES.OPERADOR_TELAS),
     asyncHandler(async (req, res) => {
       const result = await removeTelasEnderecoBatchUseCase.execute(req.body?.telas, getActorUsuario(req));
       return sendSuccess(res, 200, { message: "success", ...result });
@@ -228,7 +242,7 @@ export const registerRoutes = (app: Express) => {
 
   v1.post(
     "/telas/batch-excluir",
-    requireRoles(USER_ROLES.ADMIN, USER_ROLES.MOVIMENTADOR),
+    requireRoles(USER_ROLES.ADMIN, USER_ROLES.OPERADOR_TELAS),
     asyncHandler(async (req, res) => {
       const result = await deleteTelasBatchUseCase.execute(req.body?.telas, getActorUsuario(req));
       return sendSuccess(res, 200, { message: "success", ...result });
@@ -268,7 +282,7 @@ export const registerRoutes = (app: Express) => {
 
   v1.delete(
     "/telas/:codigo/endereco",
-    requireRoles(USER_ROLES.ADMIN, USER_ROLES.MOVIMENTADOR),
+    requireRoles(USER_ROLES.ADMIN, USER_ROLES.OPERADOR_TELAS),
     asyncHandler(async (req, res) => {
       const tela = await removeTelaEnderecoUseCase.execute(
         String(req.params.codigo),
@@ -280,7 +294,7 @@ export const registerRoutes = (app: Express) => {
 
   v1.delete(
     "/telas/:codigo",
-    requireRoles(USER_ROLES.ADMIN, USER_ROLES.MOVIMENTADOR),
+    requireRoles(USER_ROLES.ADMIN, USER_ROLES.OPERADOR_TELAS),
     asyncHandler(async (req, res) => {
       const tela = await deleteTelaUseCase.execute(
         String(req.params.codigo),

@@ -17,6 +17,7 @@ Permissoes:
 - `OPERADOR_TELAS`: gerencia telas, reposicoes, enderecamento e solicitacoes.
 - `MOVIMENTADOR`: endereca telas e executa fluxo de solicitacoes.
 - `USUARIO_PRODUCAO`: consulta telas e cria solicitacoes.
+- Somente `ADMIN` gerencia usuários internos. A exclusão remove o acesso à aplicação Telas, mas não permite autoexclusão nem a remoção do último administrador ativo.
 
 ## Telas
 
@@ -31,8 +32,8 @@ Permissoes:
 - Uma tela já alocada pode ser transferida diretamente para outro endereço. A transferência libera o endereço anterior automaticamente, ocupa uma vaga no destino e registra endereço e status anteriores e novos na auditoria.
 - A limpeza ou remoção de endereço preserva o cadastro, remove o endereço físico, define `SEM_ENDERECO` e registra auditoria individual.
 - O código de barras identifica uma única tela física e não pode ser duplicado.
-- `ADMIN` e `MOVIMENTADOR` podem remover o endereço de uma tela sem excluir seu cadastro; a tela pode ser endereçada novamente depois.
-- `ADMIN` e `MOVIMENTADOR` podem excluir permanentemente uma tela. A exclusão é bloqueada quando houver solicitação ativa vinculada à tela.
+- `ADMIN` e `OPERADOR_TELAS` podem remover o endereço de uma tela sem excluir seu cadastro; a tela pode ser endereçada novamente depois.
+- `ADMIN` e `OPERADOR_TELAS` podem excluir permanentemente uma tela. A exclusão é bloqueada quando houver solicitação ativa vinculada à tela.
 - Telas sem movimentacao sao calculadas pelo ultimo audit log de `TELA`, com fallback para `updatedate`/`createdate`.
 
 O status de localização não pode ser alterado manualmente por rota de criação, edição ou ação em lote. Status de localização:

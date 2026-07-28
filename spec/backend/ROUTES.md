@@ -20,6 +20,7 @@ Requer `ADMIN`.
 - `GET /v1/users`: lista usuarios por `search`, `role`, `active`, `page`, `itemsPerPage`.
 - `POST /v1/users`: cria usuario interno.
 - `PATCH /v1/users/:id`: atualiza matricula, nome, usuario, setor, unidade, papel e ativo.
+- `DELETE /v1/users/:id`: exclui o usuário interno. Não permite excluir o próprio usuário nem o último administrador ativo.
 
 Body de criacao/edicao:
 
@@ -119,7 +120,11 @@ Se a tela já estiver alocada em outro endereço, ela será transferida automati
 
 ### `DELETE /v1/telas/:codigo/endereco`
 
-Requer `ADMIN` ou `MOVIMENTADOR`. Remove somente o endereço físico da tela, preserva seu cadastro e define o status `SEM_ENDERECO`.
+Requer `ADMIN` ou `OPERADOR_TELAS`. Remove somente o endereço físico da tela, preserva seu cadastro e define o status `SEM_ENDERECO`.
+
+### `POST /v1/telas/batch-remover-endereco`
+
+Requer `ADMIN` ou `OPERADOR_TELAS`. Remove os endereços das telas informadas, preserva seus cadastros e define o status `SEM_ENDERECO`.
 
 ### `POST /v1/enderecos/:id/limpar`
 
@@ -127,9 +132,13 @@ Requer `ADMIN` ou `OPERADOR_TELAS`. Libera todas as telas ocupando o endereço, 
 
 ### `DELETE /v1/telas/:codigo`
 
-Requer `ADMIN` ou `MOVIMENTADOR`. Exclui permanentemente a tela pelo código de barras.
+Requer `ADMIN` ou `OPERADOR_TELAS`. Exclui permanentemente a tela pelo código de barras.
 
 A operação é bloqueada com `409 TELA_COM_SOLICITACAO_ATIVA` quando a tela estiver vinculada a solicitação com status ativo (`pedido`, `aceito`, `gravacao`, `setor_em_manutencao`, `concluido` ou `entregue`).
+
+### `POST /v1/telas/batch-excluir`
+
+Requer `ADMIN` ou `OPERADOR_TELAS`. Exclui permanentemente as telas informadas e aplica a mesma validação de solicitações ativas.
 
 ### `POST /v1/telas/:codigo/reposicoes`
 
