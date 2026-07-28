@@ -79,5 +79,4 @@ Controllers nao devem conter regra de negocio. Use cases coordenam regras e repo
 ## Fontes de Verdade
 
 - Specs em `spec/` sao a fonte primaria para manutencao tecnica durante a evolucao do projeto.
-- `README.md` sera atualizado futuramente como documentacao central de uso, configuracao e onboarding quando o projeto estiver finalizado.
 - O codigo existente continua sendo referencia para detalhes de implementacao ainda nao especificados.

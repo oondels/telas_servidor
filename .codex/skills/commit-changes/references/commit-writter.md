@@ -66,7 +66,6 @@ Rules:
 ## Documentation Analysis
 Check whether the changed behavior requires documentation updates:
 
-- If `README.md` exists, confirm whether setup steps, commands, environment variables, ports, or user-facing behavior changed.
 - If `DESIGN_SPEC.md` exists, confirm whether the implementation still matches the stated objectives and requirements.
 - If either file does not exist, report that explicitly instead of assuming no documentation impact.
 
