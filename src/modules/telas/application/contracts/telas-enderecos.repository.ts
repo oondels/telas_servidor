@@ -9,6 +9,6 @@ export interface ITelasEnderecosRepository {
   countOccupiedVagas(address: string): Promise<number>;
   allocateTelas(barcodeEndereco: string, codigosTelas: string[], usuario: string): Promise<number>;
   clearAddress(id: number, usuario: string): Promise<{ address: string; telasLiberadas: number }>;
-  updateVagas(id: number, vagas: number, user: string): Promise<TelaEndereco>;
+  updateVagas(id: number, vagas: number, user: string, maxCapacity?: number): Promise<TelaEndereco>;
   delete(id: number): Promise<void>;
 }

@@ -82,6 +82,15 @@ describe("TypeOrmTelasEnderecosRepository.create", () => {
   });
 });
 
+describe("TypeOrmTelasEnderecosRepository.updateVagas", () => {
+  it("rejects capacities above the configured maximum", async () => {
+    const repository = new TypeOrmTelasEnderecosRepository({} as never);
+
+    await expect(repository.updateVagas(1, 101, "OPERADOR", 100))
+      .rejects.toMatchObject({ code: "CAPACIDADE_ENDERECO_EXCEDIDA" });
+  });
+});
+
 describe("TypeOrmTelasEnderecosRepository.allocateTelas", () => {
   it("transfers a screen from its current address to the destination", async () => {
     const tela = {
