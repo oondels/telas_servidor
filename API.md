@@ -148,7 +148,7 @@ curl -X POST http://localhost:3000/v1/telas \
 ### Editar tela
 `PATCH /v1/telas/:codigo`
 
-> Requer `ADMIN` ou `OPERADOR_TELAS`.
+> Requer `ADMIN`.
 
 ```
 curl -X PATCH http://localhost:3000/v1/telas/TL-001 \

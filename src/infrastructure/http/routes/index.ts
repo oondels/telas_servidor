@@ -275,7 +275,7 @@ export const registerRoutes = (app: Express) => {
 
   v1.patch(
     "/telas/:codigo",
-    requireRoles(USER_ROLES.ADMIN, USER_ROLES.OPERADOR_TELAS),
+    requireRoles(USER_ROLES.ADMIN),
     asyncHandler(async (req, res) => {
       const tela = await editTelaUseCase.execute(String(req.params.codigo).trim().toUpperCase(), req.body ?? {}, getActorUsuario(req));
       return sendSuccess(res, 200, { message: "success", tela });

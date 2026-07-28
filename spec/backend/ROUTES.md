@@ -102,7 +102,7 @@ Body:
 
 ### `PATCH /v1/telas/:codigo`
 
-Requer `ADMIN` ou `OPERADOR_TELAS`. Edita tela pelo codigo de barras. Os campos `status` e `endereco` não são aceitos; localização e status são gerenciados pelo fluxo de endereçamento.
+Requer `ADMIN`. Edita tela pelo codigo de barras. Os campos `status` e `endereco` não são aceitos; localização e status são gerenciados pelo fluxo de endereçamento.
 
 ### `PATCH /v1/telas/:codigo/endereco`
 
