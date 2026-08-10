@@ -1,6 +1,6 @@
 {
   "name": "servidor-telas",
-  "version": "2.0.0",
+  "version": "1.0.0",
   "description": "API REST para controle de telas de serigrafia da DASS",
   "main": "dist/server.js",
   "type": "module",
