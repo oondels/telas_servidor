@@ -52,13 +52,14 @@ const getActorUsuario = (req: Parameters<typeof getAuthenticatedUser>[0]) => {
 
 const requireAutomationAdmin = (req: Request, _res: Response, next: NextFunction) => {
   const user = getActiveAppUser(req);
-  const setor = String(user.setor ?? "").trim().toUpperCase();
+  const jwtUser = getAuthenticatedUser(req);
+  const isAdmin = user.role === USER_ROLES.ADMIN || Boolean(jwtUser.is_admin);
 
-  if (setor !== "AUTOMACAO" || user.role !== USER_ROLES.ADMIN) {
+  if (!isAdmin) {
     throw new AppError(
       403,
       "PERMISSAO_INSUFICIENTE",
-      "Acesso permitido somente para ADMIN do setor AUTOMACAO",
+      "Acesso permitido somente para administradores do sistema de telas",
     );
   }
 

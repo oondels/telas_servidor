@@ -4,7 +4,11 @@ import { env } from "../../../config/env.js";
 import { sendError } from "../../../shared/http/http-response.js";
 
 export const verifyToken = (req: Request, res: Response, next: NextFunction) => {
-  const token = req.cookies?.[env.JWT_COOKIE_NAME];
+  const authHeader = req.headers.authorization;
+  const bearerToken = authHeader && authHeader.startsWith("Bearer ")
+    ? authHeader.slice(7).trim()
+    : null;
+  const token = bearerToken || req.cookies?.[env.JWT_COOKIE_NAME];
 
   if (!token) {
     return sendError(res, 401, "TOKEN_NAO_FORNECIDO", "Acesso negado! Token de acesso não fornecido!");
