@@ -38,6 +38,26 @@ describe("loadActiveUser", () => {
     expect((req as any).appUser.role).toBe(USER_ROLES.ADMIN);
   });
 
+  it("authorizes central admin via database lookup when is_admin claim is absent from JWT", async () => {
+    const next = vi.fn();
+    const req = {
+      user: { id: 1, usuario: "SUPER.ADMIN", matricula: 9999999 },
+      appUser: undefined,
+    };
+    const mockRepo = {
+      findActiveByMatricula: vi.fn().mockResolvedValue(null),
+      isCentralAdmin: vi.fn().mockResolvedValue(true),
+    };
+
+    const middleware = (await import("./active-user.js")).loadActiveUser(mockRepo as never);
+    await middleware(req as never, {} as never, next);
+
+    expect(mockRepo.isCentralAdmin).toHaveBeenCalledWith(9999999, "SUPER.ADMIN");
+    expect(next).toHaveBeenCalledOnce();
+    expect((req as any).appUser.role).toBe(USER_ROLES.ADMIN);
+    expect((req as any).user.is_admin).toBe(true);
+  });
+
   it("blocks user without local registration and without is_admin", async () => {
     const next = vi.fn();
     const req = {

@@ -7,10 +7,21 @@ import { AppError } from "../../../shared/domain/errors/app-error.js";
 export const loadActiveUser = (usersRepository: TypeOrmUsersRepository) => {
   return async (req: Request, _res: Response, next: NextFunction) => {
     const matricula = getAuthenticatedMatricula(req);
+    const jwtUser = getAuthenticatedUser(req);
+
+    if (typeof jwtUser?.is_admin !== "boolean" && typeof usersRepository.isCentralAdmin === "function") {
+      const isCentralAdmin = await usersRepository.isCentralAdmin(
+        matricula,
+        jwtUser?.usuario ? String(jwtUser.usuario) : null,
+      );
+      if (jwtUser) {
+        jwtUser.is_admin = isCentralAdmin;
+      }
+    }
+
     const user = await usersRepository.findActiveByMatricula(matricula);
 
     if (!user) {
-      const jwtUser = getAuthenticatedUser(req);
       if (Boolean(jwtUser?.is_admin)) {
         req.appUser = {
           id: String(jwtUser.id ?? "admin"),
