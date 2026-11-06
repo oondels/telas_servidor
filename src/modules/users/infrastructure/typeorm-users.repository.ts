@@ -35,6 +35,25 @@ export class TypeOrmUsersRepository {
     return entity ? mapUser(entity) : null;
   }
 
+  async isCentralAdmin(matricula: number, usuario?: string | null): Promise<boolean> {
+    if (!this.dataSource?.isInitialized) {
+      return false;
+    }
+
+    try {
+      const rows = await this.dataSource.query(
+        `SELECT is_admin FROM autenticacao.usuarios
+         WHERE (matricula::text = $1 AND $1 IS NOT NULL)
+            OR (UPPER(TRIM(usuario)) = UPPER(TRIM($2)) AND $2 IS NOT NULL)
+         LIMIT 1`,
+        [matricula ? String(matricula).trim() : null, usuario ? String(usuario).trim() : null],
+      );
+      return Array.isArray(rows) && rows.length > 0 ? Boolean(rows[0]?.is_admin) : false;
+    } catch (_error) {
+      return false;
+    }
+  }
+
   async search(input: SearchUsersInput) {
     const params: unknown[] = [];
     const where: string[] = [];
